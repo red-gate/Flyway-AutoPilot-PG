@@ -1,0 +1,28 @@
+function "inventory"."addmaintenancelog(integer, character varying)" {
+  text = """
+
+BEGIN
+    INSERT INTO Inventory.MaintenanceLog (FlightID, Description, MaintenanceStatus)
+    VALUES (FlightID, Description, 'Pending');
+    RAISE NOTICE 'Maintenance log entry created.';
+END;
+"""
+  returnType = void
+  arguments = <
+    {
+      name = flightid
+      type = integer
+      mode = IN
+    }
+
+    {
+      name = description
+      type = character varying
+      mode = IN
+    }
+
+  >
+  language = plpgsql
+  owner = postgres
+}
+

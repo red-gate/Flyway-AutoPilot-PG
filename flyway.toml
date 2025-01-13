@@ -18,31 +18,36 @@ mixed = true
 outOfOrder = true
 locations = [ "filesystem:migrations" ]
 validateMigrationNaming = true
-baselineVersion = "001_20240221160237"
+baselineVersion = "001_20250113140165"
 baselineOnMigrate = true
 
 [environments.development]
-url = "jdbc:postgresql://localhost:5434/widgetdev"
-schemas = [ "public" ]
+url = "jdbc:postgresql://localhost:5432/autopilotdev"
+schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Development database"
 
 [environments.shadow]
-url = "jdbc:postgresql://localhost:5434/widgetshadow"
-schemas = [ "public" ]
+url = "jdbc:postgresql://localhost:5432/autopilotshadow"
+schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Shadow database"
 provisioner = "clean"
 
 [environments.Test]
-url = "jdbc:postgresql://localhost:5432/widgettest"
-schemas = [ "public" ]
+url = "jdbc:postgresql://localhost:5432/autopilottest"
+schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Test"
 
 [environments.Prod]
-url = "jdbc:postgresql://localhost:5434/widgetprod"
-schemas = [ "public" ]
-displayName = "Production"
+url = "jdbc:postgresql://localhost:5432/autopilotprod"
+schemas = [ "public", "inventory", "customers", "sales" ]
+displayName = "Prod"
 
 [environments.Build]
-url = "jdbc:postgresql://localhost:5432/widgetbuild"
-schemas = [ "public" ]
+url = "jdbc:postgresql://localhost:5432/autopilotbuild"
+schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Build"
+
+[environments.Check]
+url = "jdbc:postgresql://localhost:5432/autopilotcheck"
+schemas = [ "public", "inventory", "customers", "sales" ]
+displayName = "Check"

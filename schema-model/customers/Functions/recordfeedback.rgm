@@ -1,0 +1,34 @@
+function "customers"."recordfeedback(integer, integer, character varying)" {
+  text = """
+
+BEGIN
+    INSERT INTO Customers.CustomerFeedback (CustomerID, Rating, Comments)
+    VALUES (CustomerID, Rating, Comments);
+    RAISE NOTICE 'Customer feedback recorded successfully.';
+END;
+"""
+  returnType = void
+  arguments = <
+    {
+      name = customerid
+      type = integer
+      mode = IN
+    }
+
+    {
+      name = rating
+      type = integer
+      mode = IN
+    }
+
+    {
+      name = comments
+      type = character varying
+      mode = IN
+    }
+
+  >
+  language = plpgsql
+  owner = postgres
+}
+

@@ -1,0 +1,58 @@
+table "sales"."orders" {
+  primaryKey = {
+    columns = [
+      "orderid"
+    ]
+    name = "orders_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "orderid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('sales.orders_orderid_seq'::regclass)
+    }
+    column "customerid" {
+      type = integer
+    }
+    column "flightid" {
+      type = integer
+    }
+    column "orderdate" {
+      type = timestamp with time zone
+      default = CURRENT_TIMESTAMP
+    }
+    column "status" {
+      type = character varying(20)
+      default = 'Pending'::character varying
+    }
+    column "totalamount" {
+      type = numeric(10,2)
+    }
+    column "ticketquantity" {
+      type = integer
+    }
+  )
+}
+
+foreignKey "sales"."orders"."orders_customerid_fkey" {
+  columns = [
+    "customerid"
+  ]
+  referencedTable = "customers"."customer"
+  referencedColumns = [
+    "customerid"
+  ]
+}
+
+foreignKey "sales"."orders"."orders_flightid_fkey" {
+  columns = [
+    "flightid"
+  ]
+  referencedTable = "inventory"."flight"
+  referencedColumns = [
+    "flightid"
+  ]
+}
+

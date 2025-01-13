@@ -1,0 +1,30 @@
+table "inventory"."flightroute" {
+  primaryKey = {
+    columns = [
+      "routeid"
+    ]
+    name = "flightroute_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "routeid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('inventory.flightroute_routeid_seq'::regclass)
+    }
+    column "departurecity" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "arrivalcity" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "distance" {
+      type = integer
+      null = NOT NULL
+    }
+  )
+}
+

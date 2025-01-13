@@ -1,0 +1,52 @@
+table "customers"."customer" {
+  primaryKey = {
+    columns = [
+      "customerid"
+    ]
+    name = "customer_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "customerid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('customers.customer_customerid_seq'::regclass)
+    }
+    column "firstname" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "lastname" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "email" {
+      type = character varying(100)
+      null = NOT NULL
+    }
+    column "dateofbirth" {
+      type = date
+    }
+    column "phone" {
+      type = character varying(20)
+    }
+    column "address" {
+      type = character varying(200)
+    }
+  )
+}
+
+index "customers"."customer_email_key" {
+  table = "customers"."customer"
+  type = btree
+  columns = <
+    {
+      definition = email
+    }
+
+  >
+  isUnique = True
+  isConstraint = true
+}
+

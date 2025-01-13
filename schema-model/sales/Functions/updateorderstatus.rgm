@@ -1,0 +1,28 @@
+function "sales"."updateorderstatus(integer, character varying)" {
+  text = """
+
+BEGIN
+    UPDATE Sales.Orders
+    SET Status = NewStatus
+    WHERE OrderID = OrderID;
+END;
+"""
+  returnType = void
+  arguments = <
+    {
+      name = orderid
+      type = integer
+      mode = IN
+    }
+
+    {
+      name = newstatus
+      type = character varying
+      mode = IN
+    }
+
+  >
+  language = plpgsql
+  owner = postgres
+}
+

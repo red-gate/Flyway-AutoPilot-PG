@@ -1,0 +1,470 @@
+# This is a best practice Flyway Enterprise workflow to help you get started with Azure DevOps and a Windows Runner
+
+name: Flyway-AutoPilot-Simple-Pipeline-Windows
+
+trigger: none
+#   branches:
+#     include:
+#       - release
+#   paths:
+#     include:
+#       - migrations/*
+
+# Step 1: Stage Variables - The below parameters will be consumed in the corresponding stage. Therefore, these need to be updated according to your environment details
+parameters:
+  # Build Stage Variables
+  - name: buildStage
+    type: object
+    default: 
+      stage: 'Build'
+      DATABASE_NAME: "AutoPilotBuild"
+      # This variable refers to the environment name present in the Flyway Projects TOML file. Use Flyway Desktop to check and change this value if required.
+      TARGET_ENVIRONMENT: "Build" 
+      # Optional - If SQL Authentication is used, provide the relevant database username/password. For improved security, ensure secure variables are provided
+      TARGET_DATABASE_USERNAME: "$(TARGET_DATABASE_USERNAME_SECURE)"
+      TARGET_DATABASE_PASSWORD: "$(TARGET_DATABASE_PASSWORD_SECURE)"
+      EXECUTE_BUILD: "true" # Turn to false to skip the build stage tasks
+      #variableGroupName: 'AutoPilot_Build'  # Side Quest 1 - Securing Variables with Library Groups
+  # Test Stage Variables
+  - name: testStage
+    type: object
+    default: 
+      stage: 'Test'
+      DATABASE_NAME: "AutoPilotTest"
+      # This variable refers to the environment name present in the Flyway Projects TOML file. Use Flyway Desktop to check and change this value if required.
+      TARGET_ENVIRONMENT: "Test" 
+      # Optional - If SQL Authentication is used, provide the relevant database username/password. For improved security, ensure secure variables are provided
+      TARGET_DATABASE_USERNAME: "$(TARGET_DATABASE_USERNAME_SECURE)"
+      TARGET_DATABASE_PASSWORD: "$(TARGET_DATABASE_PASSWORD_SECURE)"
+      REPORT_ENVIRONMENT: "Check"
+       # Optional - If SQL Authentication is used, provide the relevant database username/password. For improved security, ensure secure variables are provided
+      REPORT_DATABASE_USERNAME: "$(REPORT_DATABASE_USERNAME_SECURE)"
+      REPORT_DATABASE_PASSWORD: "$(REPORT_DATABASE_PASSWORD_SECURE)"
+      pauseForCodeReview: "false" # Turn to false to skip the build stage tasks
+      generateReport: "true" # Turn to false to skip the CHECK report stage tasks
+      #variableGroupName: 'AutoPilot_Build'  # Side Quest 1 - Securing Variables with Library Groups
+  # Prod Stage Variables
+  - name: prodStage
+    type: object
+    default: 
+      stage: 'Prod'
+      DATABASE_NAME: "AutoPilotProd"
+      # This variable refers to the environment name present in the Flyway Projects TOML file. Use Flyway Desktop to check and change this value if required.
+      TARGET_ENVIRONMENT: "Prod" 
+      # Optional - If SQL Authentication is used, provide the relevant database username/password. For improved security, ensure secure variables are provided
+      TARGET_DATABASE_USERNAME: "$(TARGET_DATABASE_USERNAME_SECURE)"
+      TARGET_DATABASE_PASSWORD: "$(TARGET_DATABASE_PASSWORD_SECURE)"
+      REPORT_ENVIRONMENT: "Check"
+       # Optional - If SQL Authentication is used, provide the relevant database username/password. For improved security, ensure secure variables are provided
+      REPORT_DATABASE_USERNAME: "$(REPORT_DATABASE_USERNAME_SECURE)"
+      REPORT_DATABASE_PASSWORD: "$(REPORT_DATABASE_PASSWORD_SECURE)"
+      pauseForCodeReview: "true" # Turn to false to skip the build stage tasks
+      generateReport: "true" # Turn to false to skip the CHECK report stage tasks
+      #variableGroupName: 'AutoPilot_Build'  # Side Quest 1 - Securing Variables with Library Groups
+
+
+pool:
+  # Step 2 - Set which Agent Pool is to be used #
+  name: "Default" # To be set when a self-hosted agent pool is to be used alongside this pipeline
+  #vmImage: "windows-latest" # To be used when a microsoft-hosted agent is used alongside this pipeline (Such as ubuntu-latest/windows-latest)
+
+variables:
+
+  # This is the relative path to the migrations folder in your project, such as:
+  # $(System.DefaultWorkingDirectory)\project
+  # The default is to have the migrations folder in the same directory as the yml file
+  WORKING_DIRECTORY: $(System.DefaultWorkingDirectory)
+  system.debug: 'false' # Set this to true to enable verbose logging on your pipeline run
+  
+  # Side Quest #1 - Securing Variables with Library Groups - Create a Library Variable Group to house secure pipeline variables (Click Pipelines --> Library --> + Variable Group)
+  # group: "AutoPilot_Global" # FLYWAY_EMAIL/FLYWAY_TOKEN/FLYWAY_LICENSE_KEY (Personal Access Keys are the recommended license authentication method - https://documentation.red-gate.com/fd/tutorial-personal-access-tokens-243271547.html)
+  
+  # License Authentication - Place value in above Library Group for security, or plaintext below for simplicity #
+
+  # Step 3: Personal Access Tokens (PATs) are the recommended method of authorizing Flyway during a non-interactive session
+  # Details on how to do this can be found here: https://documentation.red-gate.com/flyway/flyway-cli-and-api/tutorials/tutorial-personal-access-tokens
+  # Documentation on all available Authentication methods can be found here: https://documentation.red-gate.com/fd/flyway-licensing-263061944.html
+  FLYWAY_EMAIL: "$(FLYWAY_EMAIL_SECURE)" # Enter the email address linked to the Redgate Account that created the PAT
+  # PAT's should always be treated as secure. Therefore, we recommend creating a secure variable called FLYWAY_TOKEN_SECURE. To use a secret in ADO, this needs to be mapped as an environment variable for each section
+  FLYWAY_TOKEN: "$(FLYWAY_TOKEN_SECURE)" # Enter the PAT Value (This should be treated like a password and thus as a secure variable. Consider using a Library Group or Secure Variable for this value)
+
+  #FLYWAY_LICENSE_KEY: "" # Deprecated Authentication Method. Consider using the new PAT method for added security.
+
+  BASELINE_VERSION: "001" # This should match the version number of your baseline script
+  FIRST_UNDO_SCRIPT: "002" # This should match the first undo version in your project
+
+  # Optional - For ephemeral agents/runners, it's necessary to validate Flyway is installed on each run. Set the below to true to enable the functionality
+  FLYWAY_CLI_INSTALL_CHECK: "false" # Setting to false will skip the Flyway CLI check step
+  FLYWAY_VERSION: "Latest" # This outlines the version of Flyway CLI that will be downloaded if no Flyway CLI is detected on the target agent (Examples - '11.0.0' for specific version. Or 'Latest' for latest version)
+  FLYWAY_INSTALL_DIRECTORY: "C:\\FlywayCLI\\" # The path on the agent machine where Flyway CLI will be installed
+
+  # Optional: Side Quest #2 - Using the Flyway Pipeline Integration - https://flyway.red-gate.com/ For More Details
+  FLYWAY_PUBLISH_RESULT: "true" # Set this value to true to enable Flyway Pipelines and track your releases centrally!
+  FLYWAY_DRIFT_ON_MIGRATE: "true" # Set this value to true to enable Flyway Pipelines drift detection and track your drift centrally!
+
+stages:
+  - stage: Build # Tip - The build stage is a great way of gaining quick early feedback about upcoming releases. It simply needs to point to an empty database to function.
+    displayName: Build Stage 
+    jobs:
+    - job: Build
+      variables: # Tip - For sensitive variables, store these in a Library Variable Group and reference the name below (Click Pipelines --> Library --> + Variable Group)
+      # Side Quest 1 - Securing Variables with Library Groups - FLYWAY_EMAIL/FLYWAY_TOKEN/FLYWAY_LICENSE_KEY (Use either PAT or License Key method for License Authentication)
+      #- group: "AutoPilot_Global"
+      # Side Quest 1 - Securing Variables with Library Groups - DATABASE_NAME/TARGET_ENVIRONMENT/TARGET_DATABASE_USER/TARGET_DATABASE_PASSWORD/EXECUTE_BUILD
+      #- group: "${{parameters.buildStage.variableGroupName}}"
+      # Example Variable syntax if required. Sensitive values should ALWAYS be kept secure in either Variable Groups (See above) or Secure Variables (Click 'Variables' in top right corner of pipeline editor)
+      - name: Example
+        value: "MyExampleValue"
+
+      steps:
+        # Pre-Req - Optional - Check if Flyway CLI Installed and Available on Agent
+        - task: PowerShell@2
+          displayName: 'Flyway CLI - Install Check'
+          condition: eq(variables['FLYWAY_CLI_INSTALL_CHECK'], true)
+          inputs:
+            targetType: 'inline'
+            script: |
+                    $scriptPath = "$(WORKING_DIRECTORY)\scripts\Flyway_DownloadAndInstallCLI.ps1"
+                    if (Test-Path $scriptPath) {
+                      Write-Host "Script found. Running Flyway_DownloadAndInstallCLI.ps1..."
+                      & $scriptPath
+                      Write-Host "Updating PATH environment variable to include Flyway CLI Path"
+                        Write-Host "##vso[task.prependpath]$(FLYWAY_INSTALL_DIRECTORY)"
+                    } 
+                    else {
+                      Write-Host "Error: Script not found at path $scriptPath"
+                      exit 1
+                    }
+        # Step 1 - Flyway License Authentication
+        - script: |
+            flyway auth -IAgreeToTheEula -email="$(FLYWAY_EMAIL)" -token="$(FLYWAY_TOKEN)"
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Flyway Authentication'
+          condition: eq('${{parameters.buildStage.EXECUTE_BUILD}}', true)
+          env:
+            FLYWAY_EMAIL: $(FLYWAY_EMAIL)
+            FLYWAY_TOKEN: $(FLYWAY_TOKEN)
+        # Step 2 - Ensure the Build Database is cleaned of all objects, meaning the build starts from scratch
+        - script: |
+            flyway info clean info -environment="${{parameters.buildStage.TARGET_ENVIRONMENT}}" -user="${{parameters.buildStage.TARGET_DATABASE_USERNAME}}" -password="${{parameters.buildStage.TARGET_DATABASE_PASSWORD}}" -configFiles="$(WORKING_DIRECTORY)\flyway.toml" -locations="filesystem:$(WORKING_DIRECTORY)\migrations"
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Clean Build DB'
+          condition: and(succeeded(), eq('${{parameters.buildStage.EXECUTE_BUILD}}', true))
+          env:
+            FLYWAY_CLEAN_DISABLED: false # This should only be disabled for temporary sandbox databases, like Build
+        # Step 3 - Migrate all scripts from the migration folder, to verify they can be deployed against an empty database. This is the quickest way to get feedback about problematic scripts
+        - script: |
+            flyway info migrate info -environment="${{parameters.buildStage.TARGET_ENVIRONMENT}}" -user="${{parameters.buildStage.TARGET_DATABASE_USERNAME}}" -password="${{parameters.buildStage.TARGET_DATABASE_PASSWORD}}" -baselineOnMigrate=true  -configFiles="$(WORKING_DIRECTORY)\flyway.toml" -locations="filesystem:$(WORKING_DIRECTORY)\migrations" "-publishResult=$(FLYWAY_PUBLISH_RESULT)" "-flywayServicePublish.publishReport=$(FLYWAY_PUBLISH_RESULT)" "-reportEnabled=$(FLYWAY_PUBLISH_RESULT)"
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          condition: and(succeeded(), eq('${{parameters.buildStage.EXECUTE_BUILD}}', true))
+          displayName: 'Validate Migrate Scripts'
+          env:
+            EXAMPLE_VARIABLE: MyValue
+        # Step 4 (Optional) - Undo all relevant migrations using corresponding rollback script, to validate they can be run. This helps to reduce the chance the script will fail during a real life rollback scenario 
+        - script: |
+            flyway info undo info -environment="${{parameters.buildStage.TARGET_ENVIRONMENT}}" -user="${{parameters.buildStage.TARGET_DATABASE_USERNAME}}" -password="${{parameters.buildStage.TARGET_DATABASE_PASSWORD}}" -configFiles="$(WORKING_DIRECTORY)\flyway.toml" -locations="filesystem:$(WORKING_DIRECTORY)\migrations" -target="$(FIRST_UNDO_SCRIPT)"
+          continueOnError: true
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          condition: and(succeeded(), eq('${{parameters.buildStage.EXECUTE_BUILD}}', true))
+          displayName: 'Validate Undo Scripts'
+          env:
+            EXAMPLE_VARIABLE: MyValue
+        # ADO - Copy in-scope build files to artifact directory 
+        - task: CopyFiles@2
+          condition: succeeded()
+          inputs:
+            SourceFolder: '$(WORKING_DIRECTORY)'
+            Contents: |
+              !flyway-*/**/*
+              !.git/**/*
+              !.git*/**/*
+              **/schema-model/**/*
+              **/migrations/**/*
+              **/backups/**/*
+              **/flyway.toml
+              **/Filter.scpf
+            TargetFolder: '$(System.ArtifactsDirectory)'
+        # ADO - Publish Artifact Directory
+        - task: PublishBuildArtifacts@1 # This step publishes all the validated Flyway Project files as a build artifact
+          condition: succeeded()
+          displayName: 'Publish Build Artifact'
+          inputs:
+            ArtifactName: 'Flyway-CI-$(Build.BuildId)'
+            PathtoPublish: '$(System.ArtifactsDirectory)'
+
+  - stage: Test
+    displayName: Test Stage
+    dependsOn: Build
+    variables: # Tip - For sensitive variables, store these in a Library Variable Group and reference the name below (Click Pipelines --> Library --> + Variable Group)
+        # Side Quest 2 - Securing Variables with Library Groups - FLYWAY_EMAIL/FLYWAY_TOKEN/FLYWAY_LICENSE_KEY (Use either PAT or License Key method for License Authentication)
+        #- group: "AutoPilot_Global"
+        # Side Quest 2 - Securing Variables with Library Groups - DATABASE_NAME/TARGET_ENVIRONMENT/TARGET_DATABASE_USER/TARGET_DATABASE_PASSWORD/EXECUTE_BUILD
+        #- group: "AutoPilot_Test"
+        # Example Variable syntax if required. Sensitive values should ALWAYS be kept secure in either Variable Groups (See above) or Secure Variables (Click 'Variables' in top right corner of pipeline editor)
+      - name: FLYWAY_CHECK_DRIFT_ON_MIGRATE
+        value: "$(FLYWAY_DRIFT_ON_MIGRATE)" # Setting this variable to true will enable the Flyway Pipelines drift detection so you can track your drift centrally!
+    jobs:
+    - job: ChangeReport
+      displayName: "Flyway - Pre Release Change Report"
+      condition: 
+      variables:
+        EXAMPLE: ""
+      steps:
+        # Pre-Req - Optional - Check if Flyway CLI Installed and Available on Agent
+        - task: PowerShell@2
+          displayName: 'Flyway CLI - Install Check'
+          condition: and(eq(variables['FLYWAY_CLI_INSTALL_CHECK'], true), eq('${{parameters.testStage.generateReport}}', true))
+          inputs:
+            targetType: 'inline'
+            script: |
+                    $scriptPath = "$(WORKING_DIRECTORY)\scripts\Flyway_DownloadAndInstallCLI.ps1"
+                    if (Test-Path $scriptPath) {
+                      Write-Host "Script found. Running Flyway_DownloadAndInstallCLI.ps1..."
+                      & $scriptPath
+                      Write-Host "Updating PATH environment variable to include Flyway CLI Path"
+                        Write-Host "##vso[task.prependpath]$(FLYWAY_INSTALL_DIRECTORY)"
+                    } 
+                    else {
+                      Write-Host "Error: Script not found at path $scriptPath"
+                      exit 1
+                    }
+        # Pre-Req - Download Build Artifact
+        - task: DownloadBuildArtifacts@0
+          condition: eq('${{parameters.testStage.generateReport}}', true)
+          inputs:
+            buildType: 'current'
+            downloadType: 'single'
+            artifactName: 'Flyway-CI-$(Build.BuildId)'
+            downloadPath: '$(System.ArtifactsDirectory)'
+        # Step 1 - Flyway License Authentication
+        - script: |
+            flyway auth -IAgreeToTheEula -email="$(FLYWAY_EMAIL)" -token="$(FLYWAY_TOKEN)"
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Flyway Authentication'
+          condition: and(succeeded(), eq('${{parameters.testStage.generateReport}}', 'true'))
+          env:
+            FLYWAY_EMAIL: $(FLYWAY_EMAIL)
+            FLYWAY_TOKEN: $(FLYWAY_TOKEN)
+        # Step 2 - Create Check Report
+        - script: |
+              flyway check -dryrun -changes -drift info -environment="${{parameters.testStage.TARGET_ENVIRONMENT}}" -user="${{parameters.testStage.TARGET_DATABASE_USERNAME}}" -password="${{parameters.testStage.TARGET_DATABASE_PASSWORD}}" -check.buildEnvironment="${{parameters.testStage.REPORT_ENVIRONMENT}}" -environments.${{parameters.testStage.REPORT_ENVIRONMENT}}.user="${{parameters.testStage.REPORT_DATABASE_USERNAME}}" -environments.${{parameters.testStage.REPORT_ENVIRONMENT}}.password="${{parameters.testStage.REPORT_DATABASE_PASSWORD}}" -configFiles="$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\flyway.toml" -locations="filesystem:$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\migrations" "-reportFilename=$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\reports\${{parameters.testStage.DATABASE_NAME}}-Run-$(Build.BuildId)-Check-Report.html" "-publishResult=$(FLYWAY_PUBLISH_RESULT)" "-flywayServicePublish.publishReport=$(FLYWAY_PUBLISH_RESULT)" "-reportEnabled=$(FLYWAY_PUBLISH_RESULT)"
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          condition: and(succeeded(), eq('${{parameters.testStage.generateReport}}', 'true'))
+          continueOnError: false
+          displayName: 'Flyway Check Report'
+        # Step 3 - Publish Check Report
+        - task: PublishBuildArtifacts@1
+          displayName: 'Publish Check Report'
+          condition: and(succeeded(), eq('${{parameters.testStage.generateReport}}', 'true'))
+          inputs:
+            ArtifactName: 'Flyway-CD-Reports-$(Build.BuildId)'
+            PathtoPublish: '$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\reports\${{parameters.testStage.DATABASE_NAME}}-Run-$(Build.BuildId)-Check-Report.html'
+        
+
+    - job: CodeReview
+      displayName: Code Review
+      dependsOn: ChangeReport
+      pool: server
+      steps:
+        # Optional - Manual Validation Step
+        - task: ManualValidation@0
+          condition: eq('${{parameters.testStage.pauseForCodeReview}}', 'true')
+          displayName: 'Review Change Report Prior To Release'
+          timeoutInMinutes: 4320 
+          inputs:
+            notifyUsers: |
+              user@email.com
+              example@example.com
+            instructions: 'Review changes'
+        
+    - job: Deploy
+      displayName: "Deploy"
+      dependsOn: CodeReview
+      variables:
+        EXAMPLE: ""
+      steps:
+        # Pre-Req - Check if Flyway CLI Installed and Available on Agent
+        - task: PowerShell@2
+          displayName: 'Flyway CLI - Install Check'
+          condition: eq(variables['FLYWAY_CLI_INSTALL_CHECK'], true)
+          inputs:
+            targetType: 'inline'
+            script: |
+               $scriptPath = "$(WORKING_DIRECTORY)\scripts\Flyway_DownloadAndInstallCLI.ps1"
+                    if (Test-Path $scriptPath) {
+                      Write-Host "Script found. Running Flyway_DownloadAndInstallCLI.ps1..."
+                      & $scriptPath
+                      Write-Host "Updating PATH environment variable to include Flyway CLI Path"
+                        Write-Host "##vso[task.prependpath]$(FLYWAY_INSTALL_DIRECTORY)"
+                    } 
+                    else {
+                      Write-Host "Error: Script not found at path $scriptPath"
+                      exit 1
+                    }
+        # Pre-Req - Download Build Artifact
+        - task: DownloadBuildArtifacts@0
+          inputs:
+            buildType: 'current'
+            downloadType: 'single'
+            artifactName: 'Flyway-CI-$(Build.BuildId)'
+            downloadPath: '$(System.ArtifactsDirectory)'
+        # Step 1 - Flyway License Authentication
+        - script: |
+            flyway auth -IAgreeToTheEula -email="$(FLYWAY_EMAIL)" -token="$(FLYWAY_TOKEN)"
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Flyway Authentication'
+          condition: succeeded()
+          env:
+            FLYWAY_EMAIL: $(FLYWAY_EMAIL)
+            FLYWAY_TOKEN: $(FLYWAY_TOKEN)
+        # Step 2 - Flyway - Deploy Pending migrations to target environment
+        - script: |
+            flyway info migrate info -environment="${{parameters.testStage.TARGET_ENVIRONMENT}}" -user="${{parameters.testStage.TARGET_DATABASE_USERNAME}}" -password="${{parameters.testStage.TARGET_DATABASE_PASSWORD}}" -baselineOnMigrate=true -baselineVersion="$(BASELINE_VERSION)" -configFiles="$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\flyway.toml" -locations="filesystem:$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\migrations" "-publishResult=$(FLYWAY_PUBLISH_RESULT)" "-flywayServicePublish.publishReport=$(FLYWAY_PUBLISH_RESULT)" "-reportEnabled=$(FLYWAY_PUBLISH_RESULT)"
+          condition: succeeded()
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Migrate Test DB'
+          env:
+            EXAMPLE_VARIABLE: MyValue
+  
+  - stage: Prod
+    displayName: Prod Stage
+    dependsOn: Test
+    variables: # Tip - For sensitive variables, store these in a Library Variable Group and reference the name below (Click Pipelines --> Library --> + Variable Group)
+        # Side Quest 2 - Securing Variables with Library Groups - FLYWAY_EMAIL/FLYWAY_TOKEN/FLYWAY_LICENSE_KEY (Use either PAT or License Key method for License Authentication)
+        #- group: "AutoPilot_Global"
+        # Side Quest 2 - Securing Variables with Library Groups - DATABASE_NAME/TARGET_ENVIRONMENT/TARGET_DATABASE_USER/TARGET_DATABASE_PASSWORD/EXECUTE_BUILD
+        #- group: "AutoPilot_Prod"
+        # Example Variable syntax if required. Sensitive values should ALWAYS be kept secure in either Variable Groups (See above) or Secure Variables (Click 'Variables' in top right corner of pipeline editor)
+      - name: FLYWAY_CHECK_DRIFT_ON_MIGRATE
+        value: "$(FLYWAY_DRIFT_ON_MIGRATE)" # Setting this variable to true will enable the Flyway Pipelines drift detection so you can track your drift centrally!
+    jobs:
+    - job: ChangeReport
+      displayName: "Flyway - Pre Release Change Report"
+      condition:
+      variables:
+        EXAMPLE: ""
+      #- group: ${{stage.variableGroupName}}
+      #- group: pipeline_flyway_vars
+      steps:
+        # Pre-Req - Check if Flyway CLI Installed and Available on Agent
+        - task: PowerShell@2
+          displayName: 'Flyway CLI - Install Check'
+          condition: and(eq(variables['FLYWAY_CLI_INSTALL_CHECK'], true), eq('${{parameters.prodStage.generateReport}}', true))
+          inputs:
+            targetType: 'inline'
+            script: |
+                    $scriptPath = "$(WORKING_DIRECTORY)\scripts\Flyway_DownloadAndInstallCLI.ps1"
+                    if (Test-Path $scriptPath) {
+                      Write-Host "Script found. Running Flyway_DownloadAndInstallCLI.ps1..."
+                      & $scriptPath
+                      Write-Host "Updating PATH environment variable to include Flyway CLI Path"
+                        Write-Host "##vso[task.prependpath]$(FLYWAY_INSTALL_DIRECTORY)"
+                    } 
+                    else {
+                      Write-Host "Error: Script not found at path $scriptPath"
+                      exit 1
+                    }
+        # Pre-Req - Download Build Artifact
+        - task: DownloadBuildArtifacts@0
+          condition: eq('${{parameters.prodStage.generateReport}}', true)
+          inputs:
+            buildType: 'current'
+            downloadType: 'single'
+            artifactName: 'Flyway-CI-$(Build.BuildId)'
+            downloadPath: '$(System.ArtifactsDirectory)'
+        # Step 1 - Flyway License Authentication
+        - script: |
+            flyway auth -IAgreeToTheEula -email="$(FLYWAY_EMAIL)" -token="$(FLYWAY_TOKEN)"
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Flyway Authentication'
+          condition: and(succeeded(), eq('${{parameters.prodStage.generateReport}}', 'true'))
+          env:
+            FLYWAY_EMAIL: $(FLYWAY_EMAIL)
+            FLYWAY_TOKEN: $(FLYWAY_TOKEN)
+        # Step 2 - Create Check Report
+        - script: |
+              flyway check -dryrun -changes -drift info -environment="${{parameters.prodStage.TARGET_ENVIRONMENT}}" -user="${{parameters.prodStage.TARGET_DATABASE_USERNAME}}" -password="${{parameters.prodStage.TARGET_DATABASE_PASSWORD}}" -check.buildEnvironment="${{parameters.prodStage.REPORT_ENVIRONMENT}}" -environments.${{parameters.prodStage.REPORT_ENVIRONMENT}}.user="${{parameters.prodStage.REPORT_DATABASE_USERNAME}}" -environments.${{parameters.prodStage.REPORT_ENVIRONMENT}}.password="${{parameters.prodStage.REPORT_DATABASE_PASSWORD}}" -configFiles="$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\flyway.toml" -locations="filesystem:$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\migrations" "-reportFilename=$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\reports\${{parameters.prodStage.DATABASE_NAME}}-Run-$(Build.BuildId)-Check-Report.html" "-publishResult=$(FLYWAY_PUBLISH_RESULT)" "-flywayServicePublish.publishReport=$(FLYWAY_PUBLISH_RESULT)" "-reportEnabled=$(FLYWAY_PUBLISH_RESULT)"
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          condition: eq('${{parameters.prodStage.generateReport}}', true)
+          continueOnError: false
+          displayName: 'Flyway Check Report'
+        # Step 3 - Publish Check Report
+        - task: PublishBuildArtifacts@1
+          displayName: 'Publish Check Report'
+          condition: eq('${{parameters.prodStage.generateReport}}', true)
+          inputs:
+            ArtifactName: 'Flyway-CD-Reports-$(Build.BuildId)'
+            PathtoPublish: '$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\reports\${{parameters.prodStage.DATABASE_NAME}}-Run-$(Build.BuildId)-Check-Report.html'
+
+    - job: CodeReview
+      displayName: Code Review
+      dependsOn: ChangeReport
+      pool: server
+      steps:
+        - task: ManualValidation@0
+          displayName: 'Review Change Report Prior To Release'
+          condition: eq('${{parameters.prodStage.pauseForCodeReview}}', 'true')
+          timeoutInMinutes: 4320
+          inputs:
+            notifyUsers: |
+              user@email.com
+              example@example.com
+            instructions: 'Review changes'
+        
+    - job: Deploy
+      displayName: "Deploy"
+      dependsOn: CodeReview
+      variables:
+        EXAMPLE: ""
+      steps:
+        # Pre-Req - Check if Flyway CLI Installed and Available on Agent
+        - task: PowerShell@2
+          displayName: 'Flyway CLI - Install Check'
+          condition: eq(variables['FLYWAY_CLI_INSTALL_CHECK'], true)
+          inputs:
+            targetType: 'inline'
+            script: |
+               $scriptPath = "$(WORKING_DIRECTORY)\scripts\Flyway_DownloadAndInstallCLI.ps1"
+                    if (Test-Path $scriptPath) {
+                      Write-Host "Script found. Running Flyway_DownloadAndInstallCLI.ps1..."
+                      & $scriptPath
+                      Write-Host "Updating PATH environment variable to include Flyway CLI Path"
+                        Write-Host "##vso[task.prependpath]$(FLYWAY_INSTALL_DIRECTORY)"
+                    } 
+                    else {
+                      Write-Host "Error: Script not found at path $scriptPath"
+                      exit 1
+                    }
+        # Pre-Req - Download Build Artifact
+        - task: DownloadBuildArtifacts@0
+          inputs:
+            buildType: 'current'
+            downloadType: 'single'
+            artifactName: 'Flyway-CI-$(Build.BuildId)'
+            downloadPath: '$(System.ArtifactsDirectory)'
+        # Step 1 - Flyway License Authentication
+        - script: |
+            flyway auth -IAgreeToTheEula -email="$(FLYWAY_EMAIL)" -token="$(FLYWAY_TOKEN)"
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Flyway Authentication'
+          condition: succeeded()
+          env:
+            FLYWAY_EMAIL: $(FLYWAY_EMAIL)
+            FLYWAY_TOKEN: $(FLYWAY_TOKEN)
+        # Flyway - Deploy Pending migrations to target environment
+        - script: |
+            flyway info migrate info -environment="${{parameters.prodStage.TARGET_ENVIRONMENT}}" -user="${{parameters.prodStage.TARGET_DATABASE_USERNAME}}" -password="${{parameters.prodStage.TARGET_DATABASE_PASSWORD}}" -baselineOnMigrate=true -baselineVersion="$(BASELINE_VERSION)" -configFiles="$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\flyway.toml" -locations="filesystem:$(System.ArtifactsDirectory)\Flyway-CI-$(Build.BuildId)\migrations" "-publishResult=$(FLYWAY_PUBLISH_RESULT)" "-flywayServicePublish.publishReport=$(FLYWAY_PUBLISH_RESULT)" "-reportEnabled=$(FLYWAY_PUBLISH_RESULT)"
+          condition: succeeded()
+          continueOnError: false
+          workingDirectory: '$(WORKING_DIRECTORY)'
+          displayName: 'Migrate Prod DB'
+          env:
+            MyVariableName: "MyValue"

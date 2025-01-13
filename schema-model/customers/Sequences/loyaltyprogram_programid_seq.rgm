@@ -1,0 +1,12 @@
+sequence "customers"."loyaltyprogram_programid_seq" {
+  type = integer
+  increment = 1
+  minValue = 1
+  maxValue = 2147483647
+  start = 1
+  cache = 1
+  cycle = NO CYCLE
+  owner = postgres
+  ownedBy = "customers"."loyaltyprogram"."programid"
+}
+

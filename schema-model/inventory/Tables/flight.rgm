@@ -1,0 +1,46 @@
+table "inventory"."flight" {
+  primaryKey = {
+    columns = [
+      "flightid"
+    ]
+    name = "flight_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "flightid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('inventory.flight_flightid_seq'::regclass)
+    }
+    column "airline" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "departurecity" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "arrivalcity" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "departuretime" {
+      type = timestamp with time zone
+      null = NOT NULL
+    }
+    column "arrivaltime" {
+      type = timestamp with time zone
+      null = NOT NULL
+    }
+    column "price" {
+      type = numeric(10,2)
+      null = NOT NULL
+    }
+    column "availableseats" {
+      type = integer
+      null = NOT NULL
+    }
+  )
+}
+

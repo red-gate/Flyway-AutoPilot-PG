@@ -1,0 +1,38 @@
+view "sales"."customerordersview" {
+  text = """-
+SELECT c.customerid,
+    c.firstname,
+    c.lastname,
+    o.orderid,
+    o.orderdate,
+    o.status,
+    o.totalamount
+   FROM (customers.customer c
+     JOIN sales.orders o ON ((c.customerid = o.customerid)));
+"""
+  owner = postgres
+  columns = (
+    column "customerid" {
+      type = integer
+    }
+    column "firstname" {
+      type = character varying(50)
+    }
+    column "lastname" {
+      type = character varying(50)
+    }
+    column "orderid" {
+      type = integer
+    }
+    column "orderdate" {
+      type = timestamp with time zone
+    }
+    column "status" {
+      type = character varying(20)
+    }
+    column "totalamount" {
+      type = numeric(10,2)
+    }
+  )
+}
+

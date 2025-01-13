@@ -1,0 +1,26 @@
+table "customers"."loyaltyprogram" {
+  primaryKey = {
+    columns = [
+      "programid"
+    ]
+    name = "loyaltyprogram_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "programid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('customers.loyaltyprogram_programid_seq'::regclass)
+    }
+    column "programname" {
+      type = character varying(50)
+      null = NOT NULL
+    }
+    column "pointsmultiplier" {
+      type = numeric(3,2)
+      default = 1.0
+    }
+  )
+}
+

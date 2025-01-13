@@ -1,0 +1,38 @@
+table "sales"."orderauditlog" {
+  primaryKey = {
+    columns = [
+      "auditid"
+    ]
+    name = "orderauditlog_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "auditid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('sales.orderauditlog_auditid_seq'::regclass)
+    }
+    column "orderid" {
+      type = integer
+    }
+    column "changedate" {
+      type = timestamp with time zone
+      default = CURRENT_TIMESTAMP
+    }
+    column "changedescription" {
+      type = character varying(500)
+    }
+  )
+}
+
+foreignKey "sales"."orderauditlog"."orderauditlog_orderid_fkey" {
+  columns = [
+    "orderid"
+  ]
+  referencedTable = "sales"."orders"
+  referencedColumns = [
+    "orderid"
+  ]
+}
+

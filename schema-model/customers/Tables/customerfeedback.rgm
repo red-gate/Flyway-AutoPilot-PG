@@ -1,0 +1,41 @@
+table "customers"."customerfeedback" {
+  primaryKey = {
+    columns = [
+      "feedbackid"
+    ]
+    name = "customerfeedback_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "feedbackid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('customers.customerfeedback_feedbackid_seq'::regclass)
+    }
+    column "customerid" {
+      type = integer
+    }
+    column "feedbackdate" {
+      type = timestamp with time zone
+      default = CURRENT_TIMESTAMP
+    }
+    column "rating" {
+      type = integer
+    }
+    column "comments" {
+      type = character varying(500)
+    }
+  )
+}
+
+foreignKey "customers"."customerfeedback"."customerfeedback_customerid_fkey" {
+  columns = [
+    "customerid"
+  ]
+  referencedTable = "customers"."customer"
+  referencedColumns = [
+    "customerid"
+  ]
+}
+

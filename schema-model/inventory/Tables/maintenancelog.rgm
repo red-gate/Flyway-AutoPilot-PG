@@ -1,0 +1,42 @@
+table "inventory"."maintenancelog" {
+  primaryKey = {
+    columns = [
+      "logid"
+    ]
+    name = "maintenancelog_pkey"
+    objectType = primaryKey
+  }
+  owner = postgres
+  columns = (
+    column "logid" {
+      type = integer
+      null = NOT NULL
+      default = nextval('inventory.maintenancelog_logid_seq'::regclass)
+    }
+    column "flightid" {
+      type = integer
+    }
+    column "maintenancedate" {
+      type = timestamp with time zone
+      default = CURRENT_TIMESTAMP
+    }
+    column "description" {
+      type = character varying(500)
+    }
+    column "maintenancestatus" {
+      type = character varying(20)
+      default = 'Pending'::character varying
+    }
+  )
+}
+
+foreignKey "inventory"."maintenancelog"."maintenancelog_flightid_fkey" {
+  columns = [
+    "flightid"
+  ]
+  referencedTable = "inventory"."flight"
+  referencedColumns = [
+    "flightid"
+  ]
+}
+
