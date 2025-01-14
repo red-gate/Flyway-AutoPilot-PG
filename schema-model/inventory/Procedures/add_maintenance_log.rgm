@@ -1,16 +1,16 @@
-function "inventory"."addmaintenancelog(integer, character varying)" {
+procedure "inventory"."add_maintenance_log(integer, character varying)" {
   text = """
 
 BEGIN
-    INSERT INTO Inventory.MaintenanceLog (FlightID, Description, MaintenanceStatus)
-    VALUES (FlightID, Description, 'Pending');
+    INSERT INTO inventory.maintenance_log (flight_id, description, maintenance_status)
+    VALUES (flight_id, description, 'pending');
+
     RAISE NOTICE 'Maintenance log entry created.';
 END;
 """
-  returnType = void
   arguments = <
     {
-      name = flightid
+      name = flight_id
       type = integer
       mode = IN
     }

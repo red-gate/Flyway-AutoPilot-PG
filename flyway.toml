@@ -18,22 +18,22 @@ mixed = true
 outOfOrder = true
 locations = [ "filesystem:migrations" ]
 validateMigrationNaming = true
-baselineVersion = "001_20250113140165"
+baselineVersion = "001"
 baselineOnMigrate = true
 
 [environments.development]
-url = "jdbc:postgresql://localhost:5432/autopilotdev"
+url = "jdbc:postgresql://localhost:5434/autopilot_dev"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Development database"
 
 [environments.shadow]
-url = "jdbc:postgresql://localhost:5432/autopilotshadow"
+url = "jdbc:postgresql://localhost:5434/autopilot_shadow"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Shadow database"
 provisioner = "clean"
 
 [environments.Test]
-url = "jdbc:postgresql://localhost:5432/autopilottest"
+url = "jdbc:postgresql://localhost:5434/autopilot_test"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Test"
 

@@ -1,0 +1,27 @@
+procedure "sales"."update_order_status(integer, character varying)" {
+  text = """
+
+BEGIN
+    UPDATE sales.orders
+    SET status = new_status
+    WHERE order_id = order_id;
+END;
+"""
+  arguments = <
+    {
+      name = order_id
+      type = integer
+      mode = IN
+    }
+
+    {
+      name = new_status
+      type = character varying
+      mode = IN
+    }
+
+  >
+  language = plpgsql
+  owner = postgres
+}
+

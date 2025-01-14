@@ -1,22 +1,22 @@
-table "customers"."customerfeedback" {
+table "customers"."customer_feedback" {
   primaryKey = {
     columns = [
-      "feedbackid"
+      "feedback_id"
     ]
-    name = "customerfeedback_pkey"
+    name = "customer_feedback_pkey"
     objectType = primaryKey
   }
   owner = postgres
   columns = (
-    column "feedbackid" {
+    column "feedback_id" {
       type = integer
       null = NOT NULL
-      default = nextval('customers.customerfeedback_feedbackid_seq'::regclass)
+      generatedAsIdentity = ALWAYS
     }
-    column "customerid" {
+    column "customer_id" {
       type = integer
     }
-    column "feedbackdate" {
+    column "feedback_date" {
       type = timestamp with time zone
       default = CURRENT_TIMESTAMP
     }
@@ -29,13 +29,13 @@ table "customers"."customerfeedback" {
   )
 }
 
-foreignKey "customers"."customerfeedback"."customerfeedback_customerid_fkey" {
+foreignKey "customers"."customer_feedback"."customer_feedback_customer_id_fkey" {
   columns = [
-    "customerid"
+    "customer_id"
   ]
   referencedTable = "customers"."customer"
   referencedColumns = [
-    "customerid"
+    "customer_id"
   ]
 }
 

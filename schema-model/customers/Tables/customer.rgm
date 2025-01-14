@@ -1,23 +1,23 @@
 table "customers"."customer" {
   primaryKey = {
     columns = [
-      "customerid"
+      "customer_id"
     ]
     name = "customer_pkey"
     objectType = primaryKey
   }
   owner = postgres
   columns = (
-    column "customerid" {
+    column "customer_id" {
       type = integer
       null = NOT NULL
-      default = nextval('customers.customer_customerid_seq'::regclass)
+      generatedAsIdentity = ALWAYS
     }
-    column "firstname" {
+    column "first_name" {
       type = character varying(50)
       null = NOT NULL
     }
-    column "lastname" {
+    column "last_name" {
       type = character varying(50)
       null = NOT NULL
     }
@@ -25,7 +25,7 @@ table "customers"."customer" {
       type = character varying(100)
       null = NOT NULL
     }
-    column "dateofbirth" {
+    column "date_of_birth" {
       type = date
     }
     column "phone" {

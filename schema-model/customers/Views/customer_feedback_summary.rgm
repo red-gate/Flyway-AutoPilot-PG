@@ -1,0 +1,31 @@
+view "customers"."customer_feedback_summary" {
+  text = """-
+SELECT c.customer_id,
+    c.first_name,
+    c.last_name,
+    avg(f.rating) AS average_rating,
+    count(f.feedback_id) AS feedback_count
+   FROM (customers.customer c
+     LEFT JOIN customers.customer_feedback f ON ((c.customer_id = f.customer_id)))
+  GROUP BY c.customer_id, c.first_name, c.last_name;
+"""
+  owner = postgres
+  columns = (
+    column "customer_id" {
+      type = integer
+    }
+    column "first_name" {
+      type = character varying(50)
+    }
+    column "last_name" {
+      type = character varying(50)
+    }
+    column "average_rating" {
+      type = numeric
+    }
+    column "feedback_count" {
+      type = bigint
+    }
+  )
+}
+

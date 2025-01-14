@@ -1,0 +1,32 @@
+function "sales"."get_customer_flight_history(integer)" {
+  text = """
+
+BEGIN
+    RETURN QUERY
+    SELECT 
+        o.order_id,
+        f.airline,
+        f.departure_city,
+        f.arrival_city,
+        o.order_date,
+        o.status,
+        o.total_amount
+    FROM sales.orders o
+    JOIN inventory.flight f ON o.flight_id = f.flight_id
+    WHERE o.customer_id = customer_id
+    ORDER BY o.order_date;
+END;
+"""
+  returnType = TABLE(order_id integer, airline character varying, departure_city character varying, arrival_city character varying, order_date timestamp with time zone, status character varying, total_amount numeric)
+  arguments = <
+    {
+      name = customer_id
+      type = integer
+      mode = IN
+    }
+
+  >
+  language = plpgsql
+  owner = postgres
+}
+

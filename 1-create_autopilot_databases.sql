@@ -1,6 +1,6 @@
-create database AutoPilotDev with encoding 'UTF8';
-create database AutoPilotTest with encoding 'UTF8';
-create database AutoPilotProd with encoding 'UTF8';
-create database AutoPilotCheck with encoding 'UTF8';
-create database AutoPilotShadow with encoding 'UTF8';
-create database AutoPilotBuild with encoding 'UTF8';
+create database autopilot_dev with encoding 'UTF8';
+create database autopilot_test with encoding 'UTF8';
+create database autopilot_prod with encoding 'UTF8';
+create database autopilot_check with encoding 'UTF8';
+create database autopilot_shadow with encoding 'UTF8';
+create database autopilot_build with encoding 'UTF8';

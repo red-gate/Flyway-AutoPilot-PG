@@ -1,0 +1,39 @@
+view "inventory"."flight_maintenance_status" {
+  text = """-
+SELECT f.flight_id,
+    f.airline,
+    f.departure_city,
+    f.arrival_city,
+    count(m.log_id) AS maintenance_count,
+    sum(
+        CASE
+            WHEN ((m.maintenance_status)::text = 'completed'::text) THEN 1
+            ELSE 0
+        END) AS completed_maintenance
+   FROM (inventory.flight f
+     LEFT JOIN inventory.maintenance_log m ON ((f.flight_id = m.flight_id)))
+  GROUP BY f.flight_id, f.airline, f.departure_city, f.arrival_city;
+"""
+  owner = postgres
+  columns = (
+    column "flight_id" {
+      type = integer
+    }
+    column "airline" {
+      type = character varying(50)
+    }
+    column "departure_city" {
+      type = character varying(50)
+    }
+    column "arrival_city" {
+      type = character varying(50)
+    }
+    column "maintenance_count" {
+      type = bigint
+    }
+    column "completed_maintenance" {
+      type = bigint
+    }
+  )
+}
+

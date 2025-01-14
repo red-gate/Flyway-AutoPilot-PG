@@ -1,25 +1,25 @@
 table "sales"."orders" {
   primaryKey = {
     columns = [
-      "orderid"
+      "order_id"
     ]
     name = "orders_pkey"
     objectType = primaryKey
   }
   owner = postgres
   columns = (
-    column "orderid" {
+    column "order_id" {
       type = integer
       null = NOT NULL
-      default = nextval('sales.orders_orderid_seq'::regclass)
+      generatedAsIdentity = ALWAYS
     }
-    column "customerid" {
+    column "customer_id" {
       type = integer
     }
-    column "flightid" {
+    column "flight_id" {
       type = integer
     }
-    column "orderdate" {
+    column "order_date" {
       type = timestamp with time zone
       default = CURRENT_TIMESTAMP
     }
@@ -27,32 +27,32 @@ table "sales"."orders" {
       type = character varying(20)
       default = 'Pending'::character varying
     }
-    column "totalamount" {
+    column "total_amount" {
       type = numeric(10,2)
     }
-    column "ticketquantity" {
+    column "ticket_quantity" {
       type = integer
     }
   )
 }
 
-foreignKey "sales"."orders"."orders_customerid_fkey" {
+foreignKey "sales"."orders"."orders_customer_id_fkey" {
   columns = [
-    "customerid"
+    "customer_id"
   ]
   referencedTable = "customers"."customer"
   referencedColumns = [
-    "customerid"
+    "customer_id"
   ]
 }
 
-foreignKey "sales"."orders"."orders_flightid_fkey" {
+foreignKey "sales"."orders"."orders_flight_id_fkey" {
   columns = [
-    "flightid"
+    "flight_id"
   ]
   referencedTable = "inventory"."flight"
   referencedColumns = [
-    "flightid"
+    "flight_id"
   ]
 }
 

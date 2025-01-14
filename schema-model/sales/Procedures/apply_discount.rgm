@@ -1,0 +1,49 @@
+procedure "sales"."apply_discount(integer, character varying)" {
+  text = """
+
+DECLARE
+        discount_id INT;
+        discount_percentage NUMERIC(4, 2);
+        expiry_date TIMESTAMPTZ;
+BEGIN
+    SELECT 
+        discount_id,
+        discount_percentage,
+        expiry_date
+    INTO 
+        discount_id,
+        discount_percentage,
+        expiry_date
+    FROM sales.discount_code
+    WHERE code = discount_code;
+    
+    IF discount_id IS NOT NULL AND expiry_date >= CURRENT_TIMESTAMP THEN
+        UPDATE sales.orders
+        SET total_amount = total_amount * (1 - discount_percentage / 100)
+        WHERE order_id = order_id;
+
+        INSERT INTO sales.order_audit_log (order_id, change_description)
+        VALUES (order_id, CONCAT('Discount ', discount_code, ' applied with ', discount_percentage, '% off.'));
+    ELSE
+        RAISE EXCEPTION 'Invalid or expired discount code.';
+    END IF;
+END;
+"""
+  arguments = <
+    {
+      name = order_id
+      type = integer
+      mode = IN
+    }
+
+    {
+      name = discount_code
+      type = character varying
+      mode = IN
+    }
+
+  >
+  language = plpgsql
+  owner = postgres
+}
+
