@@ -1,0 +1,27 @@
+procedure "inventory"."update_available_seats(integer, integer)" {
+  text = """
+
+BEGIN
+    UPDATE inventory.flight
+    SET available_seats = available_seats + seat_change
+    WHERE flight_id = flight_id;
+END;
+"""
+  arguments = <
+    {
+      name = flight_id
+      type = integer
+      mode = IN
+    }
+
+    {
+      name = seat_change
+      type = integer
+      mode = IN
+    }
+
+  >
+  language = plpgsql
+  owner = postgres
+}
+

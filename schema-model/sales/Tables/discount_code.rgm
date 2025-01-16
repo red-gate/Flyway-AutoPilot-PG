@@ -1,33 +1,33 @@
-table "sales"."discountcode" {
+table "sales"."discount_code" {
   primaryKey = {
     columns = [
-      "discountid"
+      "discount_id"
     ]
-    name = "discountcode_pkey"
+    name = "discount_code_pkey"
     objectType = primaryKey
   }
   owner = postgres
   columns = (
-    column "discountid" {
+    column "discount_id" {
       type = integer
       null = NOT NULL
-      default = nextval('sales.discountcode_discountid_seq'::regclass)
+      generatedAsIdentity = ALWAYS
     }
     column "code" {
       type = character varying(20)
       null = NOT NULL
     }
-    column "discountpercentage" {
+    column "discount_percentage" {
       type = numeric(4,2)
     }
-    column "expirydate" {
+    column "expiry_date" {
       type = timestamp with time zone
     }
   )
 }
 
-index "sales"."discountcode_code_key" {
-  table = "sales"."discountcode"
+index "sales"."discount_code_code_key" {
+  table = "sales"."discount_code"
   type = btree
   columns = <
     {

@@ -1,35 +1,35 @@
 table "inventory"."flight" {
   primaryKey = {
     columns = [
-      "flightid"
+      "flight_id"
     ]
     name = "flight_pkey"
     objectType = primaryKey
   }
   owner = postgres
   columns = (
-    column "flightid" {
+    column "flight_id" {
       type = integer
       null = NOT NULL
-      default = nextval('inventory.flight_flightid_seq'::regclass)
+      generatedAsIdentity = ALWAYS
     }
     column "airline" {
       type = character varying(50)
       null = NOT NULL
     }
-    column "departurecity" {
+    column "departure_city" {
       type = character varying(50)
       null = NOT NULL
     }
-    column "arrivalcity" {
+    column "arrival_city" {
       type = character varying(50)
       null = NOT NULL
     }
-    column "departuretime" {
+    column "departure_time" {
       type = timestamp with time zone
       null = NOT NULL
     }
-    column "arrivaltime" {
+    column "arrival_time" {
       type = timestamp with time zone
       null = NOT NULL
     }
@@ -37,7 +37,7 @@ table "inventory"."flight" {
       type = numeric(10,2)
       null = NOT NULL
     }
-    column "availableseats" {
+    column "available_seats" {
       type = integer
       null = NOT NULL
     }

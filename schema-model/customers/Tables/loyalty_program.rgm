@@ -1,23 +1,23 @@
-table "customers"."loyaltyprogram" {
+table "customers"."loyalty_program" {
   primaryKey = {
     columns = [
-      "programid"
+      "program_id"
     ]
-    name = "loyaltyprogram_pkey"
+    name = "loyalty_program_pkey"
     objectType = primaryKey
   }
   owner = postgres
   columns = (
-    column "programid" {
+    column "program_id" {
       type = integer
       null = NOT NULL
-      default = nextval('customers.loyaltyprogram_programid_seq'::regclass)
+      generatedAsIdentity = ALWAYS
     }
-    column "programname" {
+    column "program_name" {
       type = character varying(50)
       null = NOT NULL
     }
-    column "pointsmultiplier" {
+    column "points_multiplier" {
       type = numeric(3,2)
       default = 1.0
     }

@@ -1,38 +1,38 @@
-table "sales"."orderauditlog" {
+table "sales"."order_audit_log" {
   primaryKey = {
     columns = [
-      "auditid"
+      "audit_id"
     ]
-    name = "orderauditlog_pkey"
+    name = "order_audit_log_pkey"
     objectType = primaryKey
   }
   owner = postgres
   columns = (
-    column "auditid" {
+    column "audit_id" {
       type = integer
       null = NOT NULL
-      default = nextval('sales.orderauditlog_auditid_seq'::regclass)
+      generatedAsIdentity = ALWAYS
     }
-    column "orderid" {
+    column "order_id" {
       type = integer
     }
-    column "changedate" {
+    column "change_date" {
       type = timestamp with time zone
       default = CURRENT_TIMESTAMP
     }
-    column "changedescription" {
+    column "change_description" {
       type = character varying(500)
     }
   )
 }
 
-foreignKey "sales"."orderauditlog"."orderauditlog_orderid_fkey" {
+foreignKey "sales"."order_audit_log"."order_audit_log_order_id_fkey" {
   columns = [
-    "orderid"
+    "order_id"
   ]
   referencedTable = "sales"."orders"
   referencedColumns = [
-    "orderid"
+    "order_id"
   ]
 }
 

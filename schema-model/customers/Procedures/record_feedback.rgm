@@ -1,16 +1,16 @@
-function "customers"."recordfeedback(integer, integer, character varying)" {
+procedure "customers"."record_feedback(integer, integer, character varying)" {
   text = """
 
 BEGIN
-    INSERT INTO Customers.CustomerFeedback (CustomerID, Rating, Comments)
-    VALUES (CustomerID, Rating, Comments);
+    INSERT INTO customers.customer_feedback (customer_id, rating, comments)
+    VALUES (customer_id, rating, comments);
+
     RAISE NOTICE 'Customer feedback recorded successfully.';
 END;
 """
-  returnType = void
   arguments = <
     {
-      name = customerid
+      name = customer_id
       type = integer
       mode = IN
     }
