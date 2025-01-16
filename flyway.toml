@@ -22,18 +22,18 @@ baselineVersion = "001"
 baselineOnMigrate = true
 
 [environments.development]
-url = "jdbc:postgresql://localhost:5434/autopilot_dev"
+url = "jdbc:postgresql://localhost:5432/autopilot_dev"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Development database"
 
 [environments.shadow]
-url = "jdbc:postgresql://localhost:5434/autopilot_shadow"
+url = "jdbc:postgresql://localhost:5432/autopilot_shadow"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Shadow database"
 provisioner = "clean"
 
 [environments.Test]
-url = "jdbc:postgresql://localhost:5434/autopilot_test"
+url = "jdbc:postgresql://localhost:5432/autopilot_test"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Test"
 
