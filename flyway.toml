@@ -1,5 +1,5 @@
 databaseType = "PostgreSql"
-name = "Postgres-AutoPilot"
+name = "AutoPilot - FastTrack (PG)"
 id = "d9495d20-78ab-41d3-9f59-0da558541f7b"
 
 [flywayDesktop]
@@ -7,8 +7,8 @@ developmentEnvironment = "development"
 shadowEnvironment = "shadow"
 schemaModel = "./schema-model"
 
-  [flywayDesktop.generate]
-  undoScripts = true
+[flywayDesktop.generate]
+undoScripts = true
 
 [redgateCompare]
 filterFile = "filter.rgf"
@@ -46,8 +46,10 @@ displayName = "Prod"
 url = "jdbc:postgresql://localhost:5432/autopilotbuild"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Build"
+provisioner = "clean"
 
 [environments.Check]
 url = "jdbc:postgresql://localhost:5432/autopilotcheck"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Check"
+provisioner = "clean"
