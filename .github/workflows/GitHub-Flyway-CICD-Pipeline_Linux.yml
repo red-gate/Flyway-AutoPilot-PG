@@ -11,6 +11,7 @@ on:
  
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+  workflow_call: # This setting allows this workflow to be called from another workflow
 env:
 
   # Enable this for additional debug logging
