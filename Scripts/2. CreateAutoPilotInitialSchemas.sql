@@ -1,4 +1,7 @@
--- Flyway AutoPilot FastTrack Database Setup Script --
+-- Flyway AutoPilot FastTrack Development Database Setup Script --
+-- How To: Connect to the autopilot_dev database and execute the script
+-- This will create all the necessary schemas and database objects
+-- Recommendation: Use pgAdmin or psql CLI to execute the script
 
 -- Creating Schemas
 CREATE SCHEMA sales;
