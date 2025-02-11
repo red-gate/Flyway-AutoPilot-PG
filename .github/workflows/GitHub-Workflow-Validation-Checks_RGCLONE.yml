@@ -115,3 +115,20 @@ jobs:
     needs: setup-validation-environment
     uses: ./.github/workflows/GitHub-Flyway-CICD-Pipeline_Linux.yml
     secrets: inherit  # Inherit existing secrets but allow environment overrides
+
+  cleanup:
+    name: Clean-up Container
+    runs-on: "self-hosted"
+    needs: Validate-Flyway-Pipeline  # This ensures cleanup runs after the validation pipeline job
+    if: always()  # Ensures this job runs even if Validate-Flyway-Pipeline fails
+    steps:
+      - name: Clean-up Containers
+        run: |
+          echo "Cleaning up containers"
+          # Validate if container exists
+          echo "Check if Data Container Already Exists"
+          
+          if rgclone get data-container "$DATA_CONTAINER_NAME" &> /dev/null ; then
+            echo "Deleting container for $DATA_CONTAINER_NAME"
+            rgclone delete dc -n "$DATA_CONTAINER_NAME"
+          fi
