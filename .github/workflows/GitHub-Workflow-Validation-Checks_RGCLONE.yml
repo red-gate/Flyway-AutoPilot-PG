@@ -14,8 +14,8 @@ jobs:
     name: Spin Up RGClone Validation Container
     runs-on: "self-hosted"
     env:
-      DATA_IMAGE_NAME: "Autopilot-Flyway-PostgreSQL"
-      DATA_CONTAINER_NAME: "Autopilot-GitHub-Actions-Build-Validate_PG-${{ github.run_number }}"
+      DATA_IMAGE_NAME: "${{ secrets.RGCLONE_IMAGE_NAME }}"
+      DATA_CONTAINER_NAME: "${{ secrets.RGCLONE_CONTAINER_NAME }}-${{ github.run_number }}"
       PROXY_PORT: "5432"
     steps:
       - name: Checkout Code
