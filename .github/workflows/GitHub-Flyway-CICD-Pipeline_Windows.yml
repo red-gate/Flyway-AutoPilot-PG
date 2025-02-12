@@ -20,6 +20,8 @@ env:
   ### Navigate to Settings > Secrets & Variables > Actions
   # FLYWAY_EMAIL: Enter the email address linked to the Redgate Account that created the PAT
   # FLYWAY_TOKEN: Enter the PAT Value (This should be treated like a password and thus as a secure variable.
+  # FLYWAY_AUTH_DISABLED: (Optional) - Create and set to true to skip the auth check stage
+  # "FLYWAY_CLI_INSTALL_CHECK"  (Optional) - Default is empty (Or false): Set as 'true' to enable a Flyway CLI validate and Install step
   # TARGET_DATABASE_USERNAME: Leave blank if using integratedSecurity (default).
   # TARGET_DATABASE_PASSWORD: Leave blank if using integratedSecurity (default).
   # CUSTOM_PARAMS: Optional - Used for passing custom Flyway Parameters to each Flyway command
@@ -30,12 +32,14 @@ env:
   # Documentation on all available Authentication methods can be found here: https://documentation.red-gate.com/fd/flyway-licensing-263061944.html
   FLYWAY_EMAIL: "${{ secrets.FLYWAY_EMAIL }}" # Enter the email address linked to the Redgate Account that created the PAT
   FLYWAY_TOKEN: "${{ secrets.FLYWAY_TOKEN }}" # Enter the PAT Value (This should be treated like a password and thus as a secure variable.
+  FLYWAY_AUTH_DISABLED: "${{ secrets.FLYWAY_AUTH_DISABLED }}" # Create and set to true to skip the auth check stage, useful when Offline Permits are in use instead.
+
   
   BASELINE_VERSION: "001" # This should match the version number of your baseline script
   FIRST_UNDO_SCRIPT: "002" # This should match the first undo version in your project
 
   # Optional: Validate Flyway CLI installation for ephemeral agents.
-  FLYWAY_CLI_INSTALL_CHECK: "false" # Setting to false will skip the Flyway CLI check step
+  FLYWAY_CLI_INSTALL_CHECK: "${{ secrets.FLYWAY_CLI_INSTALL_CHECK }}" # Setting to false will skip the Flyway CLI check step
   FLYWAY_VERSION: "Latest" # This outlines the version of Flyway CLI that will be downloaded if no Flyway CLI is detected on the target agent (Examples - '11.0.0' for specific version. Or 'Latest' for latest version)
   FLYWAY_INSTALL_DIRECTORY: "C:\\FlywayCLI\\" # The path on the agent machine where Flyway CLI will be installed  
 
@@ -81,14 +85,14 @@ jobs:
           }
       # Step 1 - Flyway License Authentication #
       - name: Flyway Authentication
-        if: ${{ env.EXECUTE_BUILD == 'true' && success() }}
+        if: ${{ env.EXECUTE_BUILD == 'true' && env.FLYWAY_AUTH_DISABLED != 'true' && success() }}
         run: |
          flyway auth -IAgreeToTheEula -email="${{ env.FLYWAY_EMAIL }}" -token="${{ env.FLYWAY_TOKEN }}"
       # Step 2 - Ensure the Build Database is cleaned of all objects, meaning the build starts from scratch
       - name: Clean Build DB
         if: ${{ env.EXECUTE_BUILD == 'true' && success() }}
         run: |
-          flyway info clean info -environment="${{ env.ENVIRONMENT }}" -user="${{ env.TARGET_DATABASE_USERNAME }}" -password="${{ env.TARGET_DATABASE_PASSWORD }}" -configFiles="${{ GITHUB.WORKSPACE }}\flyway.toml" -locations="filesystem:${{ GITHUB.WORKSPACE }}\migrations" -cleanDisabled='false' ${{ env.CUSTOM_PARAMS }}
+          flyway info clean info -environment="${{ env.ENVIRONMENT }}" -user="${{ env.TARGET_DATABASE_USERNAME }}" -password="${{ env.TARGET_DATABASE_PASSWORD }}" -configFiles="${{ GITHUB.WORKSPACE }}\flyway.toml" -locations="filesystem:${{ GITHUB.WORKSPACE }}\migrations" -cleanDisabled='false' "-environments.${{ env.ENVIRONMENT }}.provisioner=clean" ${{ env.CUSTOM_PARAMS }}
       # Step 3 - Migrate all scripts from the migration folder, to verify they can be deployed against an empty database. This is the quickest way to get feedback about problematic scripts
       - name: Migrate Build DB
         if: ${{ env.EXECUTE_BUILD == 'true' && success() }}
@@ -160,7 +164,7 @@ jobs:
           }
       # Step 1 - Flyway License Authentication #
       - name: Flyway Authentication
-        if: success()
+        if: ${{ success() && env.FLYWAY_AUTH_DISABLED != 'true' }}
         run: |
          flyway auth -IAgreeToTheEula -email="${{ env.FLYWAY_EMAIL }}" -token="${{ env.FLYWAY_TOKEN }}"
       # Step 2 - Create Check Report
@@ -175,7 +179,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with: 
           name: flyway-reports-test
-          path: ${{ GITHUB.WORKSPACE }}/reports/${{ env.DATABASE_NAME }}-Run-${{ GITHUB.RUN_ID }}-${{ env.ENVIRONMENT }}-Check-Report.html     
+          path: ${{ GITHUB.WORKSPACE }}\reports\${{ env.DATABASE_NAME }}-Run-${{ GITHUB.RUN_ID }}-${{ env.ENVIRONMENT }}-Check-Report.html    
       # Step 4 - Deploy pending migrations to target database
       - name: Migrate Test DB
         if: success()
@@ -229,7 +233,7 @@ jobs:
           }
        # Step 1 - Flyway License Authentication #
       - name: Flyway Authentication
-        if: success() 
+        if: ${{ success() && env.FLYWAY_AUTH_DISABLED != 'true' }}
         run: |
          flyway auth -IAgreeToTheEula -email="${{ env.FLYWAY_EMAIL }}" -token="${{ env.FLYWAY_TOKEN }}"
       # Step 2 - Create Check Report 
@@ -244,7 +248,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with: 
           name: flyway-reports-prod
-          path: ${{ GITHUB.WORKSPACE }}/reports/${{ env.DATABASE_NAME }}-Run-${{ GITHUB.RUN_ID }}-${{ env.ENVIRONMENT }}-Check-Report.html  
+          path: ${{ GITHUB.WORKSPACE }}\reports\${{ env.DATABASE_NAME }}-Run-${{ GITHUB.RUN_ID }}-${{ env.ENVIRONMENT }}-Check-Report.html
       # Step 4 - Deploy pending migrations to target database
       - name: Migrate Production DB
         if: success()

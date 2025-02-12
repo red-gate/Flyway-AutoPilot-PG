@@ -16,6 +16,8 @@ trigger: none
 # "FLYWAY_EMAIL" - Email linked to the Redgate account that created the PAT.
 # "FLYWAY_TOKEN" - PAT value (treat like a password; use secure variables or a Library Group).
 # "AGENT_POOL" - The name of the agent pool to be used throughout the pipeline
+# "FLYWAY_AUTH_DISABLED" (Optional) - Create and set to true to skip the auth check stage
+# "FLYWAY_CLI_INSTALL_CHECK"  (Optional) - Default is empty (Or false): Set as 'true' to enable a Flyway CLI validate and Install step
 ### End of Global Stage Variable Group ###
 
 ### Build Stage Variables - Create 'AutoPilotBuild' Variable Group ###
@@ -70,7 +72,7 @@ variables:
   FIRST_UNDO_SCRIPT: "002" # This should match the first undo version in your project
 
   # Optional - For ephemeral agents/runners, it's necessary to validate Flyway is installed on each run. Set the below to true to enable the functionality
-  FLYWAY_CLI_INSTALL_CHECK: "false" # Setting to false will skip the Flyway CLI check step
+  FLYWAY_CLI_INSTALL_CHECK: "$(FLYWAY_CLI_INSTALL_CHECK)" # Setting to false will skip the Flyway CLI check step
   FLYWAY_VERSION: "Latest" # This outlines the version of Flyway CLI that will be downloaded if no Flyway CLI is detected on the target agent (Examples - '11.0.0' for specific version. Or 'Latest' for latest version)
   FLYWAY_INSTALL_DIRECTORY: "C:\\FlywayCLI\\" # The path on the agent machine where Flyway CLI will be installed
 
@@ -125,13 +127,13 @@ stages:
           continueOnError: false
           workingDirectory: '$(WORKING_DIRECTORY)'
           displayName: 'Flyway Authentication'
-          condition: eq(variables['EXECUTE_BUILD'], true)
+          condition: and(succeeded(), eq(variables['EXECUTE_BUILD'], true), ne(variables['FLYWAY_AUTH_DISABLED'], true))
           env:
             FLYWAY_EMAIL: $(FLYWAY_EMAIL)
             FLYWAY_TOKEN: $(FLYWAY_TOKEN)
         # Step 2 - Ensure the Build Database is cleaned of all objects, meaning the build starts from scratch
         - script: |
-            flyway info clean info -environment="$(TARGET_ENVIRONMENT)" -user="$(TARGET_DATABASE_USERNAME)" -password="$(TARGET_DATABASE_PASSWORD)" -configFiles="$(WORKING_DIRECTORY)\flyway.toml" -locations="filesystem:$(WORKING_DIRECTORY)\migrations" $(CUSTOM_PARAMETERS)
+            flyway info clean info -environment="$(TARGET_ENVIRONMENT)" -user="$(TARGET_DATABASE_USERNAME)" -password="$(TARGET_DATABASE_PASSWORD)" -configFiles="$(WORKING_DIRECTORY)\flyway.toml" -locations="filesystem:$(WORKING_DIRECTORY)\migrations" "-environments.$(TARGET_ENVIRONMENT).provisioner=clean" $(CUSTOM_PARAMETERS)
           continueOnError: false
           workingDirectory: '$(WORKING_DIRECTORY)'
           displayName: 'Clean Build DB'
@@ -240,7 +242,7 @@ stages:
           continueOnError: false
           workingDirectory: '$(WORKING_DIRECTORY)'
           displayName: 'Flyway Authentication'
-          condition: and(succeeded(), eq(variables['generateReport'], true))
+          condition: and(succeeded(), eq(variables['generateReport'], true), ne(variables['FLYWAY_AUTH_DISABLED'], true))
           env:
             FLYWAY_EMAIL: $(FLYWAY_EMAIL)
             FLYWAY_TOKEN: $(FLYWAY_TOKEN)
@@ -313,7 +315,7 @@ stages:
           continueOnError: false
           workingDirectory: '$(WORKING_DIRECTORY)'
           displayName: 'Flyway Authentication'
-          condition: succeeded()
+          condition: and(succeeded(), ne(variables['FLYWAY_AUTH_DISABLED'], true))
           env:
             FLYWAY_EMAIL: $(FLYWAY_EMAIL)
             FLYWAY_TOKEN: $(FLYWAY_TOKEN)
@@ -388,7 +390,7 @@ stages:
           continueOnError: false
           workingDirectory: '$(WORKING_DIRECTORY)'
           displayName: 'Flyway Authentication'
-          condition: and(succeeded(), eq(variables['generateReport'], true))
+          condition: and(succeeded(), eq(variables['generateReport'], true), ne(variables['FLYWAY_AUTH_DISABLED'], true))
           env:
             FLYWAY_EMAIL: $(FLYWAY_EMAIL)
             FLYWAY_TOKEN: $(FLYWAY_TOKEN)
@@ -459,7 +461,7 @@ stages:
           continueOnError: false
           workingDirectory: '$(WORKING_DIRECTORY)'
           displayName: 'Flyway Authentication'
-          condition: succeeded()
+          condition: and(succeeded(), ne(variables['FLYWAY_AUTH_DISABLED'], true))
           env:
             FLYWAY_EMAIL: $(FLYWAY_EMAIL)
             FLYWAY_TOKEN: $(FLYWAY_TOKEN)
