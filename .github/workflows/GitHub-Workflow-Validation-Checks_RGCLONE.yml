@@ -108,7 +108,7 @@ jobs:
           echo "Creating Data Container Proxy"
           RUNNER_TRACKING_ID="" && rgclone proxy dc "$DATA_CONTAINER_NAME" -p "$PROXY_PORT" &  # Run the proxy in the background
 
-          echo "RGClone Proxy Enabled"
+          echo "RGClone Proxy Enabled"      
 
   Validate-Flyway-Pipeline:
     name: Run Flyway Pipeline

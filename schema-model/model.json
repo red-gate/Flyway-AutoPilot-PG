@@ -1,9 +1,9 @@
 {
   "database-engine": "postgresql",
   "database-properties": {
-    "database-version": "160000",
+    "database-version": "150004",
     "database-flavor": "postgres",
-    "model-version": "3.6"
+    "model-version": "3.8"
   },
   "model-format": "rgmf"
 }
