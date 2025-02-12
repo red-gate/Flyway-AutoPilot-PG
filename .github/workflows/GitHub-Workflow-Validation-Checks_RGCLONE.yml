@@ -16,7 +16,7 @@ jobs:
     env:
       DATA_IMAGE_NAME: "${{ secrets.RGCLONE_IMAGE_NAME }}"
       DATA_CONTAINER_NAME: "${{ secrets.RGCLONE_CONTAINER_NAME }}-${{ github.run_number }}"
-      PROXY_PORT: "5432"
+      PROXY_PORT: "${{ secrets.RGCLONE_PROXY_PORT }}"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
