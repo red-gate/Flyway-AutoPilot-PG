@@ -160,9 +160,18 @@ jobs:
     name: Retry Entire Workflow If Any Job Fails
     runs-on: "self-hosted"
     needs: [setup-validation-environment, Validate-Flyway-Pipeline, cleanup]
-    if: always() && github.repository_owner == 'RG-AutoPilot' # Ensures this job runs even if Validate-Flyway-Pipeline fails
+    if: failure() && github.repository_owner == 'RG-AutoPilot' # Runs only if any previous job failed
     steps:
+
+      - name: Authenticate GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
       - name: Trigger Workflow Again
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Retrying workflow due to failure..."
           gh workflow run "${{ github.workflow }}" -f run_id="${{ github.run_id }}"
+
