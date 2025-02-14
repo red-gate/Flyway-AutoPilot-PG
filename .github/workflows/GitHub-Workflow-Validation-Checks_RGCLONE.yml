@@ -7,14 +7,14 @@ on:
       - release  # Triggers on PRs to release
       - 'feature/*'  # Triggers on PRs to any feature branch
   schedule:
-    - cron: "0 3 * * *"  # Runs at 3 AM UTC
+    - cron: "0 2 * * *"  # Runs at 3 AM UTC
 
  ### Step 1: Define Repository Secrets ###
  ### Environment Secrets - Create Environment Secrets ###
  ### Navigate to Settings > Secrets & Variables > Actions
  # RGCLONE_API_ENDPOINT: Enter the RGClone API Endpoint Address
  # RGCLONE_ACCESS_TOKEN: Enter the Access Token for connecting to the above endpoint
- ### Step 2: Define Repository Variables ###
+ ### Step 2: Define REpository Variables ###
  ### Environment Secrets - Create Environment Secrets ###
  ### Navigate to Settings > Secrets & Variables > Actions
  # RGCLONE_IMAGE_NAME: Enter the name of the RGClone Image to be used
@@ -130,7 +130,7 @@ jobs:
 
           # Start the new RGClone proxy
           echo "Starting new RGClone Proxy on port $PROXY_PORT"
-          RUNNER_TRACKING_ID="" && rgclone proxy dc "$DATA_CONTAINER_NAME" -p "$PROXY_PORT" &  # Run the proxy in the background  
+          RUNNER_TRACKING_ID="" && rgclone proxy dc "$DATA_CONTAINER_NAME" -p "$PROXY_PORT" &  # Run the proxy in the background
 
   Validate-Flyway-Pipeline:
     if: github.repository_owner == 'RG-AutoPilot'  # Only runs if the repo is in a specific organisation
@@ -160,18 +160,11 @@ jobs:
     name: Retry Entire Workflow If Any Job Fails
     runs-on: "self-hosted"
     needs: [setup-validation-environment, Validate-Flyway-Pipeline, cleanup]
-    if: failure() && github.repository_owner == 'RG-AutoPilot' # Runs only if any previous job failed
+    if: failure() && github.repository_owner == 'RG-AutoPilot' # Triggers only if any previous job failed
     steps:
-
-      - name: Authenticate GitHub CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "${{ secrets.HK_TOKEN }}" | gh auth login --with-token
-
       - name: Trigger Workflow Again
         env:
-          GITHUB_TOKEN: ${{ secrets.HK_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
         run: |
           echo "Retrying workflow due to failure..."
           gh workflow run "${{ github.workflow }}" -f run_id="${{ github.run_id }}"
-
