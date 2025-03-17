@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# ===========================
+# Script Name: Flyway_DownloadAndInstallCLI.sh
+# Version: 1.0.0
+# Author: Chris Hawkins (Redgate Software Ltd)
+# Last Updated: 2025-03-17
+# Description: Automated Flyway CLI Installation Script
+# ===========================
+
+SCRIPT_VERSION="1.0.0"
+
+echo "Running Flyway Installer Script - Version $SCRIPT_VERSION"
+
+
 # Check if FLYWAY_VERSION is set as an environment variable
 if [ -z "$FLYWAY_VERSION" ]; then
   # If not set, assign a default value to a local variable
@@ -22,7 +35,7 @@ get_installed_version() {
 # Function to get the latest version from the website
 get_latest_version_from_website() {
   # Fetch the webpage content
-  content=$(curl -s https://documentation.red-gate.com/fd/command-line-277579359.html)
+  content=$(curl -s https://documentation.red-gate.com/flyway/reference/usage/command-line)
 
   # Extract version number using regex
   latest_version=$(echo "$content" | grep -oP 'flyway-commandline-\K\d+\.\d+\.\d+(?=-windows-x64.zip)' | head -n 1)
