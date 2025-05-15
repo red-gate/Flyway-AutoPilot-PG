@@ -38,18 +38,18 @@ schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Test"
 
 [environments.Prod]
-url = "jdbc:postgresql://localhost:5432/autopilotprod"
+url = "jdbc:postgresql://localhost:5432/autopilot_prod"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Prod"
 
 [environments.Build]
-url = "jdbc:postgresql://localhost:5432/autopilotbuild"
+url = "jdbc:postgresql://localhost:5432/autopilot_build"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Build"
 provisioner = "clean"
 
 [environments.Check]
-url = "jdbc:postgresql://localhost:5432/autopilotcheck"
+url = "jdbc:postgresql://localhost:5432/autopilot_check"
 schemas = [ "public", "inventory", "customers", "sales" ]
 displayName = "Check"
 provisioner = "clean"
