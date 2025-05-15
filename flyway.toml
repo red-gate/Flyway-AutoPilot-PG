@@ -13,6 +13,9 @@ undoScripts = true
 [redgateCompare]
 filterFile = "filter.rgf"
 
+[redgateCompare.postgresql.options.ignores]
+ignoreNewlinesInTextObjects = "all"
+
 [flyway]
 mixed = true
 outOfOrder = true
