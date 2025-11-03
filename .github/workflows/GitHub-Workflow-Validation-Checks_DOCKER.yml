@@ -34,29 +34,33 @@ jobs:
       - name: Verify Docker availability
         run: docker version || echo "Docker not found, please install before running this workflow."
 
-      - name: Check if port is in use and free it
+      - name: Force cleanup any previous container using this port or name
         run: |
-          echo "Checking if port $HOST_PORT is in use..."
-          if lsof -i :$HOST_PORT &>/dev/null; then
-            EXISTING_CONTAINER=$(docker ps --filter "publish=$HOST_PORT" --format "{{.Names}}")
-            if [ -n "$EXISTING_CONTAINER" ]; then
-              echo "Stopping and removing container using port $HOST_PORT ($EXISTING_CONTAINER)..."
-              docker stop "$EXISTING_CONTAINER" || true
-              docker rm "$EXISTING_CONTAINER" || true
-            else
-              PID=$(lsof -ti :$HOST_PORT)
-              kill -9 $PID || true
-            fi
-          else
-            echo "Port $HOST_PORT is free."
+          echo "Checking for existing container named $CONTAINER_NAME or using port $HOST_PORT..."
+
+          # Stop & remove any container matching the name
+          if [ "$(docker ps -aq -f name=$CONTAINER_NAME)" ]; then
+            echo "Found container $CONTAINER_NAME — stopping and removing it..."
+            docker stop $CONTAINER_NAME || true
+            docker rm -f $CONTAINER_NAME || true
           fi
+
+          # Also detect any container occupying the same port (even if name differs)
+          PORT_CONTAINER=$(docker ps --filter "publish=$HOST_PORT" --format "{{.Names}}")
+          if [ -n "$PORT_CONTAINER" ]; then
+            echo "Found container using port $HOST_PORT ($PORT_CONTAINER) — stopping and removing it..."
+            docker stop $PORT_CONTAINER || true
+            docker rm -f $PORT_CONTAINER || true
+          fi
+
+          echo "Pre-clean complete. Port $HOST_PORT is now free."
 
       - name: Pull PostgreSQL image
         run: docker pull $IMAGE_NAME
 
       - name: Start PostgreSQL container
         run: |
-          docker run -d \
+          docker run -d --rm \
             --name $CONTAINER_NAME \
             --label "workflow_run=${GITHUB_RUN_ID}" \
             -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
