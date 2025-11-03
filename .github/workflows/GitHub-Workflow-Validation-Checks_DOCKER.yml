@@ -25,8 +25,6 @@ jobs:
       POSTGRES_PASSWORD: "DatabaseDevOps!"
       HOST_PORT: "${{ vars.CONTAINER_PORT }}"
       CONTAINER_NAME: "${{ vars.CONTAINER_NAME }}-${{ github.run_number }}"
-      DB_SCRIPT_1: "${{ github.workspace }}/Scripts/1. CreateAutopilotDatabases.sql"
-      DB_SCRIPT_2: "${{ github.workspace }}/Scripts/2. CreateAutopilotInitialSchemas.sql"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,15 +73,16 @@ jobs:
             sleep 5
           done
 
-      - name: Run CreateAutopilotDatabases.sql (creates 6 databases)
+      - name: Copy and run database scripts
         run: |
-          docker cp "$DB_SCRIPT_1" $CONTAINER_NAME:/tmp/CreateAutopilotDatabases.sql
-          docker exec $CONTAINER_NAME psql -U postgres -f /tmp/CreateAutopilotDatabases.sql
+          docker cp "${GITHUB_WORKSPACE}/Scripts/1. CreateAutoPilotDatabases.sql" $CONTAINER_NAME:/tmp/"1. CreateAutoPilotDatabases.sql"
+          docker cp "${GITHUB_WORKSPACE}/Scripts/2. CreateAutoPilotInitialSchemas.sql" $CONTAINER_NAME:/tmp/"2. CreateAutoPilotInitialSchemas.sql"
 
-      - name: Run CreateAutopilotInitialSchemas.sql (on autopilot_dev)
-        run: |
-          docker cp "$DB_SCRIPT_2" $CONTAINER_NAME:/tmp/CreateAutopilotInitialSchemas.sql
-          docker exec $CONTAINER_NAME psql -U postgres -d autopilot_dev -f /tmp/CreateAutopilotInitialSchemas.sql
+          echo "Running CreateAutoPilotDatabases.sql..."
+          docker exec $CONTAINER_NAME bash -c "psql -U postgres -f '/tmp/1. CreateAutoPilotDatabases.sql'"
+
+          echo "Running CreateAutoPilotInitialSchemas.sql against autopilot_dev..."
+          docker exec $CONTAINER_NAME bash -c "psql -U postgres -d autopilot_dev -f '/tmp/2. CreateAutoPilotInitialSchemas.sql'"
 
       - name: Export connection info for Flyway
         run: |
