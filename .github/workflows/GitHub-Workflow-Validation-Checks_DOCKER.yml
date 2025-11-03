@@ -100,7 +100,7 @@ jobs:
     needs: Validate-Flyway-Pipeline
     if: always()
     env:
-      CONTAINER_NAME: "${{ vars.RGCLONE_CONTAINER_NAME }}-${{ github.run_number }}"
+      CONTAINER_NAME: "${{ vars.CONTAINER_NAME }}-${{ github.run_number }}"
     steps:
       - name: Stop and remove container
         run: |
