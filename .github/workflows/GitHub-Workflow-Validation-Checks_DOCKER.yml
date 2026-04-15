@@ -1,8 +1,8 @@
 # ===========================
 # Pipeline Name: GitHub-Workflow-Validation-Checks_DOCKER.yml
-# Version: 1.0.2
+# Version: 1.0.3
 # Author: Chris Hawkins (Redgate Software Ltd)
-# Last Updated: 2025-11-04
+# Last Updated: 2026-04-15
 # Description: GitHub Pipeline Validation Workflow (Use Case - To validate all future changes to the Autopilot repository in an automated way)
 # ===========================
 
