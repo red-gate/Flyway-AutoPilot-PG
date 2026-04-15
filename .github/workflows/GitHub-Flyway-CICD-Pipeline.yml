@@ -1,0 +1,207 @@
+# ===========================
+# Pipeline Name: GitHub-Flyway-CICD-Pipeline.yml
+# Version: 2.0.1
+# Author: Redgate Software Ltd
+# Last Updated: 2026-03-17
+# Last Update Notes: Added reprovision mode to deploy step in BUILD stage
+# Description: GitHub DevOps YAML Pipeline
+# ===========================
+ 
+name: Redgate Flyway
+
+# Step 1: Authenticate Flyway with Personal Access Tokens (PATs)
+## Details on how to do generate a PAT can be found here: https://documentation.red-gate.com/flyway/flyway-cli-and-api/tutorials/tutorial-personal-access-tokens
+## Documentation on all available Authentication methods can be found here: https://documentation.red-gate.com/fd/flyway-licensing-263061944.html
+
+# Step 2: Define Environment Secrets
+## Environment Secrets - Create Environment Secrets
+## Navigate to Settings > Secrets & Variables > Actions
+### FLYWAY_EMAIL: Enter the email address linked to the Redgate Account that created the PAT
+### FLYWAY_TOKEN: Enter the PAT Value (This should be treated like a password and thus as a secure variable)
+### TARGET_DATABASE_USERNAME: Leave blank if using integratedSecurity (default).
+### TARGET_DATABASE_PASSWORD: Leave blank if using integratedSecurity (default).
+### CUSTOM_PARAMS: Optional - Used for passing custom Flyway Parameters to each Flyway command
+
+# Step 3: Review the Flyway GitHub actions documentation - https://github.com/red-gate/flyway-actions
+
+on:
+  workflow_dispatch:
+  workflow_call:  # This enables the workflow to be called from other workflows
+env:
+  FLYWAY_CLI_INSTALL_CHECK: true # Setting to false will skip the Flyway CLI check step
+  FLYWAY_VERSION: "latest" # This outlines the version of Flyway CLI that will be downloaded if no Flyway CLI is detected on the target agent (Examples - '11.0.0' for specific version. Or 'Latest' for latest version)
+  FIRST_UNDO_SCRIPT: "002" # This should match the first undo version in your project
+  ACTIONS_RUNNER_DEBUG: false # Enable this for additional debug logging
+
+jobs:
+  build:
+    name: Deploy Build
+    runs-on: "self-hosted" # Options - self-hosted/ubuntu-latest/windows-latest (See here for more details on GitHub hosted runners - https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners)
+    environment: 'build'
+    env:
+      TARGET_DATABASE_ENVIRONMENT: 'Build' # This variable refers to the environment name present in the Flyway Projects TOML file. 
+      TARGET_DATABASE_USERNAME: "${{ secrets.TARGET_DATABASE_USERNAME }}"
+      TARGET_DATABASE_PASSWORD: "${{ secrets.TARGET_DATABASE_PASSWORD }}"
+      EXECUTE_BUILD: 'true' # Turn to false to skip the build stage tasks
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install Redgate Flyway
+        if: env.FLYWAY_CLI_INSTALL_CHECK == 'true'
+        uses: red-gate/setup-flyway@v3
+        with:
+          edition: enterprise
+          version: ${{ env.FLYWAY_VERSION }}
+          email: ${{ secrets.FLYWAY_EMAIL }}
+          token: ${{ secrets.FLYWAY_TOKEN }}
+          i-agree-to-the-eula: true
+
+      # Step 2 - Migrate all scripts from the migration folder, to verify they can be deployed against an empty database. This is the quickest way to get feedback about problematic scripts
+      - name: Migrate Build DB
+        if: ${{ env.EXECUTE_BUILD == 'true' && success() }}
+        uses: red-gate/flyway-actions/migrations/deploy@v2
+        with:
+          target-environment: ${{ env.TARGET_DATABASE_ENVIRONMENT }}
+          target-user: ${{ env.TARGET_DATABASE_USERNAME }}
+          target-password: ${{ env.TARGET_DATABASE_PASSWORD }}
+          provision-mode: "reprovision" # This will drop and recreate the target database schema as part of the prepare step. Only use for throwaway environments
+          skip-drift-check: true
+          extra-args: "${{ secrets.CUSTOM_PARAMS }}"
+
+      # Step 3 (Optional) - Undo all relevant migrations using corresponding rollback script, to validate they can be run. This helps to reduce the chance the script will fail during a real life rollback scenario 
+      - name: undo Build DB
+        if: ${{ env.EXECUTE_BUILD == 'true' && success() }}
+        uses: red-gate/flyway-actions/migrations/undo@v2
+        with:
+          target-migration-version: ${{ env.FIRST_UNDO_SCRIPT }}
+          target-environment: ${{ env.TARGET_DATABASE_ENVIRONMENT }}
+          target-user: ${{ env.TARGET_DATABASE_USERNAME }}
+          target-password: ${{ env.TARGET_DATABASE_PASSWORD }}
+          skip-drift-check: true 
+          extra-args: "${{ secrets.CUSTOM_PARAMS }}"
+
+      # GitHub - After migration scripts are validated, publish them as an artifact
+      - name: Publish Validated Migration Scripts as Artifact
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with: 
+          name: flyway-build-artifact
+          path: |
+              !${{ GITHUB.WORKSPACE }}/flyway-*/**/*
+              !${{ GITHUB.WORKSPACE }}/.git/**/*
+              !${{ GITHUB.WORKSPACE }}/.git*/**/*
+              ${{ GITHUB.WORKSPACE }}/**/schema-model/**/*
+              ${{ GITHUB.WORKSPACE }}/**/migrations/**/*
+              ${{ GITHUB.WORKSPACE }}/**/Scripts/**/*
+              ${{ GITHUB.WORKSPACE }}/**/backups/**/*
+              ${{ GITHUB.WORKSPACE }}/**/flyway.toml
+              ${{ GITHUB.WORKSPACE }}/**/Filter.scpf
+
+  test:
+    name: Deploy Test
+    runs-on: "self-hosted" # Options - self-hosted/ubuntu-latest/windows-latest (See here for more details on GitHub hosted runners - https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners)
+    environment: 'test' # This refers to GitHub's Environment name
+    if: ${{ true }} # Set this variable to false to temporarily disable the job
+    needs: build
+    env:
+      TARGET_DATABASE_ENVIRONMENT: "Test" # Refers to the environment in the Flyway Project TOML file.
+      TARGET_DATABASE_USERNAME: "${{ secrets.TARGET_DATABASE_USERNAME }}"
+      TARGET_DATABASE_PASSWORD: "${{ secrets.TARGET_DATABASE_PASSWORD }}"
+      REPORT_ENVIRONMENT: "Check"
+      REPORT_DATABASE_USERNAME: "${{ secrets.TARGET_DATABASE_USERNAME }}" # Optional - Change to a different secret if the connection details for the report database differs from the target
+      REPORT_DATABASE_PASSWORD: "${{ secrets.TARGET_DATABASE_PASSWORD }}" # Optional - Change to a different secret if the connection details for the report database differs from the target
+    
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: flyway-build-artifact
+
+      - name: Install Redgate Flyway
+        if: env.FLYWAY_CLI_INSTALL_CHECK == 'true'
+        uses: red-gate/setup-flyway@v3
+        with:
+          edition: enterprise
+          version: ${{ env.FLYWAY_VERSION }}
+          email: ${{ secrets.FLYWAY_EMAIL }}
+          token: ${{ secrets.FLYWAY_TOKEN }}
+          i-agree-to-the-eula: true
+
+      # Step 1 - Create Check Report
+      - name: Create Check Reports
+        uses: red-gate/flyway-actions/migrations/checks@v2
+        with:
+          target-environment: ${{ env.TARGET_DATABASE_ENVIRONMENT }}
+          target-user: ${{ env.TARGET_DATABASE_USERNAME }}
+          target-password: ${{ env.TARGET_DATABASE_PASSWORD }}
+          build-environment: ${{ env.REPORT_ENVIRONMENT }}
+          build-user: ${{ env.REPORT_DATABASE_USERNAME }}
+          build-password: ${{ env.REPORT_DATABASE_PASSWORD }}
+          build-ok-to-erase: true
+          pre-deployment-report-name: "flyway-checks-${{ env.TARGET_DATABASE_ENVIRONMENT }}.html"
+          extra-args: "${{ secrets.CUSTOM_PARAMS }}"
+
+      # Step 2 - Deploy pending migrations to target database
+      - name: Deploy to Test DB
+        uses: red-gate/flyway-actions/migrations/deploy@v2
+        with:
+          target-environment: ${{ env.TARGET_DATABASE_ENVIRONMENT }}
+          target-user: ${{ env.TARGET_DATABASE_USERNAME }}
+          target-password: ${{ env.TARGET_DATABASE_PASSWORD }}
+          extra-args: "${{ secrets.CUSTOM_PARAMS }}"
+
+  prod:
+    name: Deploy Prod
+    runs-on: "self-hosted" # Options - self-hosted/ubuntu-latest/windows-latest (See here for more details on GitHub hosted runners - https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners)
+    environment: 'prod'
+    if: ${{ true }} # Set this variable to false to temporarily disable the job
+    needs: test
+    env:
+      TARGET_DATABASE_ENVIRONMENT: "Prod" # Refers to the environment name in the Flyway Project TOML file.
+      TARGET_DATABASE_USERNAME: "${{ secrets.TARGET_DATABASE_USERNAME }}" 
+      TARGET_DATABASE_PASSWORD: "${{ secrets.TARGET_DATABASE_PASSWORD }}" 
+      REPORT_ENVIRONMENT: "Check"
+      REPORT_DATABASE_USERNAME: "${{ secrets.TARGET_DATABASE_USERNAME }}" # Optional - Change to a different secret if the connection details for the report database differs from the target
+      REPORT_DATABASE_PASSWORD: "${{ secrets.TARGET_DATABASE_PASSWORD }}" # Optional - Change to a different secret if the connection details for the report database differs from the target
+    
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: flyway-build-artifact
+      
+      - name: Install Redgate Flyway
+        if: env.FLYWAY_CLI_INSTALL_CHECK == 'true'
+        uses: red-gate/setup-flyway@v3
+        with:
+          edition: enterprise
+          version: ${{ env.FLYWAY_VERSION }}
+          email: ${{ secrets.FLYWAY_EMAIL }}
+          token: ${{ secrets.FLYWAY_TOKEN }}
+          i-agree-to-the-eula: true
+
+      # Step 1 - Create Check Report
+      - name: Create Check Reports
+        uses: red-gate/flyway-actions/migrations/checks@v2
+        with:
+          target-environment: ${{ env.TARGET_DATABASE_ENVIRONMENT }}
+          target-user: ${{ env.TARGET_DATABASE_USERNAME }}
+          target-password: ${{ env.TARGET_DATABASE_PASSWORD }}
+          build-environment: ${{ env.REPORT_ENVIRONMENT }}
+          build-user: ${{ env.REPORT_DATABASE_USERNAME }}
+          build-password: ${{ env.REPORT_DATABASE_PASSWORD }}
+          build-ok-to-erase: true
+          pre-deployment-report-name: "flyway-checks-${{ env.TARGET_DATABASE_ENVIRONMENT }}.html"
+          extra-args: "${{ secrets.CUSTOM_PARAMS }}"
+
+      # Step 3 - Deploy pending migrations to target database
+      - name: Deploy to Production DB
+        if: success()
+        uses: red-gate/flyway-actions/migrations/deploy@v2
+        with:
+          target-environment: ${{ env.TARGET_DATABASE_ENVIRONMENT }}
+          target-user: ${{ env.TARGET_DATABASE_USERNAME }}
+          target-password: ${{ env.TARGET_DATABASE_PASSWORD }}
+          extra-args: "${{ secrets.CUSTOM_PARAMS }}"
