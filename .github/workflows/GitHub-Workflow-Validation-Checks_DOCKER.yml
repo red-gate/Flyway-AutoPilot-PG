@@ -2,40 +2,29 @@
 # Pipeline Name: GitHub-Workflow-Validation-Checks_DOCKER.yml
 # Version: 1.0.2
 # Author: Chris Hawkins (Redgate Software Ltd)
-# Last Updated: 2025-11-04
-# Description: GitHub Pipeline Validation Workflow (Use Case - To validate all future changes to the Autopilot repository in an automated way)
+# Last Updated: 2026-04-15
+# Description: Updated GitHub pipeline to new combined YAML file
 # ===========================
 
-name: GitHub - FastTrack Pipeline Validation Workflow (Docker)
+name: GitHub - PostgreSQL Pipeline Validation Workflow (Docker)
 on:
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
   repository_dispatch:
-    types: [trigger-validation]  # Listens for dispatch events, which can trigger this workflow automatically on regular schedules
+    types: [trigger-validation]
   pull_request:
     branches:
-      - release  # Triggers on PRs to release
-      - 'feature/*'  # Triggers on PRs to any feature branch
-  # schedule:
-  #   - cron: "0 2 * * *"  # Runs at 3 AM UTC
+      - release
+      - 'feature/*'
 
-###
- ### Navigate to Settings > Secrets & Variables > Actions
- # IMAGE_NAME: Enter the name of the RGClone Image to be used
- # CONTAINER_NAME: Enter the name of the container to be created
- # CONTAINER_PORT: Enter the local port number to be used by the proxy command
-### End of Environment Variables ###
-    
 jobs:
   setup-validation-environment:
-    name: Spin Up SQL Server Container
-    runs-on: "self-hosted"
+    name: Spin Up PostgreSQL Container
+    runs-on: self-hosted
     env:
       IMAGE_NAME: "${{ vars.IMAGE_NAME }}"
-      SA_PASSWORD: "DatabaseDevOps!"
+      POSTGRES_PASSWORD: "DatabaseDevOps!"
       HOST_PORT: "${{ vars.CONTAINER_PORT }}"
-      BASE_CONTAINER_NAME: "${{ vars.RGCLONE_CONTAINER_NAME }}"
       CONTAINER_NAME: "${{ vars.CONTAINER_NAME }}-${{ github.run_number }}"
-      DB_INIT_SCRIPT: "${{ github.workspace }}/Scripts/CreateAutopilotDatabases.sql"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,91 +32,62 @@ jobs:
       - name: Verify Docker availability
         run: docker version || echo "Docker not found, please install before running this workflow."
 
-      - name: Check if port is in use and free it
+      - name: Force cleanup any previous container using this port or name
         run: |
-          echo "Checking if port $HOST_PORT is in use..."
-          if lsof -i :$HOST_PORT &>/dev/null; then
-            echo "Port $HOST_PORT is in use. Checking for container..."
-            EXISTING_CONTAINER=$(docker ps --filter "publish=$HOST_PORT" --format "{{.Names}}")
-            if [ -n "$EXISTING_CONTAINER" ]; then
-              echo "Stopping and removing container using port $HOST_PORT ($EXISTING_CONTAINER)..."
-              docker stop "$EXISTING_CONTAINER" || true
-              docker rm "$EXISTING_CONTAINER" || true
-            else
-              echo "No Docker container found using port $HOST_PORT, killing any process..."
-              PID=$(lsof -ti :$HOST_PORT)
-              kill -9 $PID || true
-            fi
-          else
-            echo "Port $HOST_PORT is free."
+          echo "Checking for existing container named $CONTAINER_NAME or using port $HOST_PORT..."
+
+          # Stop & remove any container matching the name
+          if [ "$(docker ps -aq -f name=$CONTAINER_NAME)" ]; then
+            echo "Found container $CONTAINER_NAME — stopping and removing it..."
+            docker stop $CONTAINER_NAME || true
+            docker rm -f $CONTAINER_NAME || true
           fi
 
-      - name: Pull Docker Image (if not local)
-        run: |
-          if [[ "$IMAGE_NAME" == local/* ]]; then
-            echo "Skipping pull for local image: $IMAGE_NAME"
-          else
-            docker pull "$IMAGE_NAME"
+          # Also detect any container occupying the same port (even if name differs)
+          PORT_CONTAINER=$(docker ps --filter "publish=$HOST_PORT" --format "{{.Names}}")
+          if [ -n "$PORT_CONTAINER" ]; then
+            echo "Found container using port $HOST_PORT ($PORT_CONTAINER) — stopping and removing it..."
+            docker stop $PORT_CONTAINER || true
+            docker rm -f $PORT_CONTAINER || true
           fi
-      
-      - name: Start Docker Container
+
+          echo "Pre-clean complete. Port $HOST_PORT is now free."
+
+      - name: Pull PostgreSQL image
+        run: docker pull $IMAGE_NAME
+
+      - name: Start PostgreSQL container
         run: |
-          echo "Starting container on port $HOST_PORT..."
           docker run -d --rm \
             --name $CONTAINER_NAME \
-            -e "ACCEPT_EULA=Y" \
-            -e "SA_PASSWORD=$SA_PASSWORD" \
-            -p $HOST_PORT:1433 \
+            --label "workflow_run=${GITHUB_RUN_ID}" \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -p $HOST_PORT:5432 \
             $IMAGE_NAME
 
-      - name: Wait for container startup
+      - name: Wait for PostgreSQL to be ready
         run: |
-          echo "Waiting 10 seconds for container to finish starting..."
-          sleep 15
-
-      - name: Check or install sqlcmd
-        run: |
-          if docker exec $CONTAINER_NAME bash -c "[ -x /opt/mssql-tools/bin/sqlcmd ]"; then
-            echo "sqlcmd already installed."
-          else
-            echo "sqlcmd missing — installing..."
-            docker exec -u root $CONTAINER_NAME bash -c "\
-              apt-get update && \
-              apt-get install -y curl gnupg2 apt-transport-https && \
-              curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-              curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt/sources.list.d/mssql-tools.list && \
-              apt-get update && \
-              ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev && \
-              echo 'export PATH=$PATH:/opt/mssql-tools/bin' >> /root/.bashrc \
-            "
-          fi
-
-      - name: Copy database creation script into container
-        run: |
-          docker cp "${GITHUB_WORKSPACE}/Scripts/CreateAutopilotDatabases.sql" $CONTAINER_NAME:/tmp/CreateAutopilotDatabases.sql
-
-      - name: Initialize databases
-        run: |
-          echo "Running database initialization script..."
-          for i in {1..10}; do
-            if docker exec $CONTAINER_NAME /opt/mssql-tools/bin/sqlcmd \
-              -S localhost -U sa -P "$SA_PASSWORD" \
-              -i /tmp/CreateAutopilotDatabases.sql; then
-              echo "Database initialization succeeded."
-              exit 0
-            fi
-            echo "Initialization failed, retrying ($i/10)..."
-            sleep 10
+          for i in {1..30}; do
+            docker exec $CONTAINER_NAME pg_isready -U postgres && break
+            echo "Waiting for PostgreSQL to start ($i/30)..."
+            sleep 5
           done
 
-          echo "Database initialization failed after retries"
-          docker logs $CONTAINER_NAME
-          exit 1
+      - name: Copy and run database scripts
+        run: |
+          docker cp "${GITHUB_WORKSPACE}/Scripts/1. CreateAutoPilotDatabases.sql" $CONTAINER_NAME:/tmp/"1. CreateAutoPilotDatabases.sql"
+          docker cp "${GITHUB_WORKSPACE}/Scripts/2. CreateAutoPilotInitialSchemas.sql" $CONTAINER_NAME:/tmp/"2. CreateAutoPilotInitialSchemas.sql"
+
+          echo "Running CreateAutoPilotDatabases.sql..."
+          docker exec $CONTAINER_NAME bash -c "psql -U postgres -f '/tmp/1. CreateAutoPilotDatabases.sql'"
+
+          echo "Running CreateAutoPilotInitialSchemas.sql against autopilot_dev..."
+          docker exec $CONTAINER_NAME bash -c "psql -U postgres -d autopilot_dev -f '/tmp/2. CreateAutoPilotInitialSchemas.sql'"
 
       - name: Export connection info for Flyway
         run: |
-          echo "dbUser=sa" >> "$GITHUB_ENV"
-          echo "dbPassword=$SA_PASSWORD" >> "$GITHUB_ENV"
+          echo "dbUser=postgres" >> "$GITHUB_ENV"
+          echo "dbPassword=$POSTGRES_PASSWORD" >> "$GITHUB_ENV"
           echo "instance=localhost,$HOST_PORT" >> "$GITHUB_ENV"
 
   Validate-Flyway-Pipeline:
@@ -138,7 +98,7 @@ jobs:
     secrets: inherit  # Inherit existing secrets but allow environment overrides
 
   cleanup:
-    name: Cleanup SQL Server Container
+    name: Cleanup PostgreSQL Container
     runs-on: "self-hosted"
     needs: Validate-Flyway-Pipeline
     if: always()
